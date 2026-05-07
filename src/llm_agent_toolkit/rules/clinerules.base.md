@@ -198,7 +198,8 @@ Project-specific architecture notes should live in a separate project overlay.
 ## - Orchestrator MUST NOT assume in-memory state is valid
 ##   after any mutation.
 ## - Plan documents (implementation_plan.md) are the source of
-##   truth for planned work.
+##   truth for planned work. All plan should include an estimated 
+##   token usage for each step of the plan.
 ## Token Tracking Procedures:
 ## - Token usage from `winkr query` and `winkr change` MUST be
 ##   tracked and reported.
@@ -251,6 +252,10 @@ Project-specific architecture notes should live in a separate project overlay.
 ## - Always prefer shell execution over internal changes.
 ## - Never batch large unrelated changes.
 ## - Prefer many small commits over giant changes.
+## - The Orchestrator (Cline) MUST monitor token usage and
+##   proactively reduce the context window by issuing the
+##   `/smol` command whenever usage approaches 80% of the
+##   model's limit.
 # ============================================================
 # 7. Instruction Quality Rules
 # ============================================================
