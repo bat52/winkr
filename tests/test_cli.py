@@ -37,6 +37,13 @@ def test_write_rules(tmp_path: Path) -> None:
     assert "winkr reusable Cline rules" in target.read_text(encoding="utf-8")
 
 
+def test_cline_start_tui_print_command(capsys) -> None:
+    exit_code = main(["cline-start", "--tui", "--print-command"])
+    assert exit_code == 0
+    output = capsys.readouterr().out.strip()
+    assert output == "npx cline --tui --auto-condense"
+
+
 def test_tiers(capsys) -> None:
     assert main(["tiers"]) == 0
     output = capsys.readouterr().out

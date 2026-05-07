@@ -169,6 +169,18 @@ This runs:
 npx cline
 ```
 
+Start in TUI mode with `--tui` (uses `--tui --auto-condense`):
+
+```bash
+winkr-agent cline-start --tui
+```
+
+This runs:
+
+```bash
+npx cline --tui --auto-condense
+```
+
 ## Optional tmux helper
 
 ```bash

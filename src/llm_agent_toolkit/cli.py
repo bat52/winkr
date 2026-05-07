@@ -79,6 +79,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Start Cline using npx.",
     )
     cline_start.add_argument(
+        "--tui",
+        action="store_true",
+        help="Start Cline in TUI mode with --tui --auto-condense.",
+    )
+    cline_start.add_argument(
         "--print-command",
         action="store_true",
         help="Print the command instead of running it.",
@@ -196,11 +201,14 @@ def handle_write_rules(args: argparse.Namespace) -> int:
 
 
 def handle_cline_start(args: argparse.Namespace) -> int:
-    command = ("npx", "cline")
+    command = ["npx", "cline"]
+    if args.tui:
+        command.extend(["--tui", "--auto-condense"])
+    cmd_tuple = tuple(command)
     if args.print_command:
-        print(" ".join(command))
+        print(" ".join(cmd_tuple))
         return 0
-    completed = subprocess.run(command, check=False)
+    completed = subprocess.run(cmd_tuple, check=False)
     return completed.returncode
 
 
