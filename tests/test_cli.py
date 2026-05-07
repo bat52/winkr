@@ -41,7 +41,7 @@ def test_cline_start_tui_print_command(capsys) -> None:
     exit_code = main(["cline-start", "--tui", "--print-command"])
     assert exit_code == 0
     output = capsys.readouterr().out.strip()
-    assert output == "npx cline --tui --auto-condense"
+    assert output.endswith("scripts/cline.sh --tui --auto-condense")
 
 
 def test_tiers(capsys) -> None:
