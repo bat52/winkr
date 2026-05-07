@@ -10,3 +10,4 @@ node_modules/*
 *-edit.md
 *-query.md
 test_venv/*
+.depwire/

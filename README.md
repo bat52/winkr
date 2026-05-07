@@ -159,6 +159,13 @@ winkr write-rules .clinerules --force
 
 ## Optional Cline helper
 
+The `winkr start` command orchestrates the Depwire MCP server, generates documentation, and launches Cline.
+
+It supports the following options:
+- `--tui`: Starts Cline in TUI mode with `--tui --auto-condense`.
+- `--remote`: Enables remote access for tmux sessions.
+- `--split`: Enables a dual-pane tmux session.
+
 ```bash
 winkr start
 ```
@@ -179,6 +186,18 @@ This runs:
 
 ```bash
 npx cline --tui --auto-condense
+```
+
+Example with `--remote` and `--split`:
+
+```bash
+winkr start --tui --remote --split
+```
+
+This runs:
+
+```bash
+npx cline --tui --auto-condense --remote --split
 ```
 
 ## Optional tmux helper

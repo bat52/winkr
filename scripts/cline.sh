@@ -18,4 +18,10 @@ cleanup() {
 
 trap cleanup EXIT
 
+# Start Depwire MCP server in background
+npx -y depwire-cli mcp > /dev/null 2>&1 &
+
+# Run depwire docs
+npx -y depwire-cli docs
+
 npx cline "$@"

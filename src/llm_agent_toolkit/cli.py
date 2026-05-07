@@ -97,7 +97,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print the command instead of running it.",
     )
+    start.add_argument(
+        "--remote",
+        action="store_true",
+        help="Enable remote access for tmux session.",
+    )
+    start.add_argument(
+        "--split",
+        action="store_true",
+        help="Enable dual-pane tmux session.",
+    )
     start.set_defaults(func=handle_start)
+
     tmux = subparsers.add_parser(
         "tmux",
         help="Start or attach to a two-pane tmux agent session.",
@@ -106,6 +117,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--print-command",
         action="store_true",
         help="Print tmux commands instead of running them.",
+    )
+    tmux.add_argument(
+        "--remote",
+        action="store_true",
+        help="Enable remote access for tmux session.",
+    )
+    tmux.add_argument(
+        "--split",
+        action="store_true",
+        help="Enable dual-pane tmux session.",
     )
     tmux.set_defaults(func=handle_tmux)
 
@@ -209,30 +230,82 @@ def handle_write_rules(args: argparse.Namespace) -> int:
 
 
 def handle_start(args: argparse.Namespace) -> int:
+    # If --tui and --remote are present, launch in tmux unless already in tmux
+    if args.tui and args.remote and os.environ.get("TMUX") is None:
+        return handle_tmux(args)
+
+    # 1. Start Depwire MCP server in background
+    depwire_mcp_cmd = ["npx", "-y", "depwire-cli", "mcp"]
+    try:
+        # Use Popen to run in background. stdout/stderr are redirected to DEVNULL
+        # to avoid blocking and keep output clean.
+        subprocess.Popen(depwire_mcp_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("Depwire MCP server started in background.")
+    except FileNotFoundError:
+        print("Warning: 'npx' or 'depwire-cli' not found. Depwire MCP server not started.", file=sys.stderr)
+
+    # 2. Run depwire docs
+    depwire_docs_cmd = ["npx", "-y", "depwire-cli", "docs"]
+    try:
+        print("Running depwire docs...")
+        # This should run synchronously.
+        subprocess.run(depwire_docs_cmd, check=False, capture_output=True, text=True)
+        print("Depwire docs generated.")
+    except FileNotFoundError:
+        print("Warning: 'npx' or 'depwire-cli' not found. Depwire docs not generated.", file=sys.stderr)
+
+    # 3. Launch Cline
     cline_script = Path(__file__).resolve().parents[2] / "scripts" / "cline.sh"
     command = [str(cline_script)]
     if args.tui:
         command.extend(["--tui", "--auto-condense"])
+    
+    # Note: --remote and --split are handled by handle_tmux if applicable, 
+    # but we pass them to cline.sh just in case it needs them.
+    if args.remote:
+        command.append("--remote")
+    if args.split:
+        command.append("--split")
+
     cmd_tuple = tuple(command)
     if args.print_command:
         print(" ".join(cmd_tuple))
         return 0
-    completed = subprocess.run(cmd_tuple, check=False)
-    return completed.returncode
+
+    completed_cline = subprocess.run(cmd_tuple, check=False)
+    return completed_cline.returncode
 
 
 def handle_tmux(args: argparse.Namespace) -> int:
     session = f"agent-{Path.cwd().name}-{_short_hostname()}"
+    
+    # Base command to run inside tmux
+    inner_cmd = "winkr start"
+    if args.tui:
+        inner_cmd += " --tui"
+    # We don't pass --remote to the inner command to avoid recursion
+    if args.split:
+        inner_cmd += " --split"
+
     commands = [
         ("tmux", "has-session", "-t", session),
         ("tmux", "new-session", "-d", "-s", session),
         ("tmux", "rename-window", "-t", session, "main"),
-        ("tmux", "split-window", "-v", "-t", session),
-        ("tmux", "send-keys", "-t", f"{session}:0.0", "winkr start", "C-m"),
-        ("tmux", "send-keys", "-t", f"{session}:0.1", _shell(), "C-m"),
-        ("tmux", "select-pane", "-t", f"{session}:0.0"),
-        ("tmux", "attach", "-t", session),
     ]
+    
+    # Add commands for the first pane
+    commands.append(("tmux", "send-keys", "-t", f"{session}:0.0", inner_cmd, "C-m"))
+
+    if args.split:
+        # Add split window command
+        commands.append(("tmux", "split-window", "-v", "-t", session))
+        # Add command for the second pane
+        commands.append(("tmux", "send-keys", "-t", f"{session}:0.1", _shell(), "C-m"))
+        # Select the first pane
+        commands.append(("tmux", "select-pane", "-t", f"{session}:0.0"))
+
+    # The attach command is always last.
+    commands.append(("tmux", "attach", "-t", session))
 
     if args.print_command:
         for command in commands:
