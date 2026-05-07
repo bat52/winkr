@@ -4,6 +4,7 @@ import sys
 import os
 from pathlib import Path
 import importlib.resources
+import shutil
 
 # Import the write_rules_file function from the rules module
 from .rules import write_rules_file
@@ -16,36 +17,60 @@ from .rules import write_rules_file
 
 def check_command_exists(command: str) -> bool:
     """Checks if a command exists in the system's PATH."""
-    try:
-        # Use 'command -v' which is standard and safer without shell=True
-        # Check if the command exists and returns 0
-        result = subprocess.run(["command", "-v", command], capture_output=True, text=True, check=False)
-        return result.returncode == 0
-    except FileNotFoundError:
-        # 'command' itself not found, highly unlikely on most systems
-        return False
+    # Use shutil.which for cross-platform reliability
+    return shutil.which(command) is not None
 
-def install_npm_package(package_name: str, global_install: bool = True):
-    """Installs an npm package."""
-    print(f"Attempting to install {package_name}...")
-    cmd = ["npm", "install"]
-    if global_install:
-        cmd.append("-g")
-    cmd.append(package_name)
+def install_npm_package(package_name: str):
+    """Installs an npm package, trying global then local installs."""
+    print(f"Attempting to install {package_name} globally...")
+    global_cmd = ["npm", "install", "-g", package_name]
     try:
-        # Use shell=True for npm to ensure it finds the correct executable in PATH
-        subprocess.run(cmd, check=True, capture_output=True, text=True, shell=True)
-        print(f"{package_name} installed successfully.")
+        subprocess.run(global_cmd, check=True, capture_output=True, text=True, shell=True)
+        print(f"{package_name} installed successfully globally.")
+        return
     except subprocess.CalledProcessError as e:
-        print(f"Error installing {package_name}: {e.stderr}")
-        raise
+        print(f"Global installation of {package_name} failed: {e.stderr}")
+        print(f"Attempting local installation of {package_name}...")
+        local_cmd = ["npm", "install", package_name]
+        try:
+            subprocess.run(local_cmd, check=True, capture_output=True, text=True, shell=True)
+            print(f"{package_name} installed successfully locally.")
+            return
+        except subprocess.CalledProcessError as e_local:
+            print(f"Local installation of {package_name} also failed: {e_local.stderr}")
+            # Provide a more informative error message
+            error_message = (
+                f"Failed to install {package_name} globally and locally.\n"
+                "Please try installing it manually:\n"
+                f"  sudo npm install -g {package_name}  (for global install)\n"
+                f"  npm install {package_name}          (for local install)\n"
+                f"Error details:\n{e_local.stderr}"
+            )
+            raise RuntimeError(error_message) from e_local
 
 def install_pip_package(package_name: str):
-    """Installs a pip package."""
+    """Installs a pip package with environment-aware logic."""
     print(f"Attempting to install {package_name}...")
-    # Using --user to avoid needing sudo for global installs
-    # Ensure we use the python interpreter associated with the current environment
-    cmd = [sys.executable, "-m", "pip", "install", "--user", package_name]
+
+    # Detect if running in a virtual environment
+    is_virtualenv = sys.prefix != sys.base_prefix or os.environ.get("VIRTUAL_ENV")
+    cmd = []
+
+    if is_virtualenv:
+        print("Detected virtual environment. Using 'pip install'.")
+        cmd = [sys.executable, "-m", "pip", "install", package_name]
+    else:
+        print("Not in a virtual environment. Checking for pipx and pipenv.")
+        if check_command_exists("pipx"):
+            print("Found pipx. Using 'pipx install'.")
+            cmd = ["pipx", "install", package_name]
+        elif check_command_exists("pipenv"):
+            print("Found pipenv. Using 'pipenv install'.")
+            cmd = ["pipenv", "install", package_name]
+        else:
+            print("pipx and pipenv not found. Falling back to 'pip install --user'.")
+            cmd = [sys.executable, "-m", "pip", "install", "--user", package_name]
+
     try:
         subprocess.run(cmd, check=True, capture_output=True, text=True)
         print(f"{package_name} installed successfully.")
@@ -56,7 +81,14 @@ def install_pip_package(package_name: str):
 def run_aider_post_install():
     """Runs the post-installation step for Aider."""
     print("Running Aider post-installation step...")
-    cmd = [sys.executable, "-m", "aider_install"]
+    # Check if aider-install is available as a command first (for pipx/pipenv/user installs)
+    if check_command_exists("aider-install"):
+        cmd = ["aider-install"]
+    else:
+        # Fallback to module execution
+        # Note: aider-install package provides aider_install.main module
+        cmd = [sys.executable, "-m", "aider_install.main"]
+    
     try:
         subprocess.run(cmd, check=True, capture_output=True, text=True)
         print("Aider post-installation complete.")
@@ -84,7 +116,7 @@ def create_clinerules_file():
     try:
         # Use the internal write_rules_file function.
         # The 'force=True' is implied by the plan's requirement to overwrite.
-        write_rules_file(".clinerules", force=True)
+        write_rules_file(Path(".clinerules"), force=True)
         print(".clinerules file created/updated successfully.")
     except Exception as e:
         print(f"Error creating .clinerules file: {e}", file=sys.stderr)
@@ -111,33 +143,34 @@ def handle_init(args: argparse.Namespace) -> int:
         print("Aider is already installed.")
 
     # Handle other dependencies
-    other_dependencies = {
-        "cline": (install_npm_package, "cline"),
-        "depwire-cli": (install_npm_package, "depwire-cli"),
-        "git": (None, None) # Git is checked differently
+    # Map dependency name to its installation function.
+    # For npm packages, the function is install_npm_package, and the package name is the same as dep_name.
+    # Git is handled separately.
+    # Map command name to its installation package name.
+    dependency_packages = {
+        "cline": "cline",
+        "depwire": "depwire-cli",
     }
 
-    for dep_name, (install_func, package_name) in other_dependencies.items():
-        if dep_name == "git":
-            if not check_command_exists("git"):
-                print("Git is not found. Please install Git to initialize the repository.")
-                # Depending on requirements, we might exit or prompt user to install git
-                # For now, we'll just warn and proceed, assuming git init will fail if not present.
-                # A more robust solution would be to guide the user on how to install git.
-                pass # Proceeding, git init will likely fail if not installed
-        elif not check_command_exists(dep_name):
-            print(f"{dep_name} not found.")
-            if install_func and package_name:
-                try:
-                    install_func(package_name)
-                except Exception as e:
-                    print(f"Failed to install {dep_name}. Please install it manually. Error: {e}")
-                    return 1 # Indicate failure
-            else:
-                print(f"Please install {dep_name} manually.")
+    # Check and install npm dependencies
+    for cmd_name, package_name in dependency_packages.items():
+        if not check_command_exists(cmd_name):
+            print(f"{cmd_name} not found.")
+            try:
+                install_npm_package(package_name)
+            except Exception as e:
+                print(f"Failed to install {cmd_name}. Please install it manually. Error: {e}")
                 return 1 # Indicate failure
         else:
-            print(f"{dep_name} is already installed.")
+            print(f"{cmd_name} is already installed.")
+
+    # Handle Git separately
+    if not check_command_exists("git"):
+        print("Git is not found. Please install Git to initialize the repository.")
+        # Depending on requirements, we might exit or prompt user to install git
+        # For now, we'll just warn and proceed, assuming git init will fail if not present.
+        # A more robust solution would be to guide the user on how to install git.
+        pass # Proceeding, git init will likely fail if not installed
 
     # 2. Git Repository Initialization
     try:
@@ -168,6 +201,5 @@ if __name__ == "__main__":
     mock_args = argparse.Namespace()
     # mock_args.force = False # Example of setting an argument
 
-    # Simulate running the command
     exit_code = handle_init(mock_args)
     sys.exit(exit_code)

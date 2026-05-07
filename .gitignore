@@ -3,3 +3,10 @@ Pipfile
 .clinerules
 .cline/
 .clinerules.test
+.aider*
+package-lock.json
+package.json
+node_modules/*
+*-edit.md
+*-query.md
+test_venv/*
