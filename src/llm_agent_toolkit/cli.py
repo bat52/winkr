@@ -14,6 +14,7 @@ from .aider import build_edit_command, build_query_command, run_command, validat
 from .config import MODEL_TIERS
 from .credentials import resolve_api_key
 from .git_safety import ensure_clean_worktree
+from .init_command import handle_init # Import the new handler
 from .logging_utils import log_prompt
 from .rules import write_rules_file
 
@@ -73,6 +74,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite the output file if it already exists.",
     )
     write_rules.set_defaults(func=handle_write_rules)
+
+    # Add the new 'init' subcommand
+    init = subparsers.add_parser(
+        "init",
+        help="Initialize winkr project environment.",
+    )
+    # No specific arguments for init command yet, but could be added later
+    init.set_defaults(func=handle_init)
 
     start = subparsers.add_parser(
         "start",
