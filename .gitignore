@@ -2,3 +2,4 @@ src/winkr.egg-info/*
 Pipfile
 .clinerules
 .cline/
+.clinerules.test

@@ -32,7 +32,7 @@ dev = [
 ]
 
 [project.scripts]
-winkr-agent = "llm_agent_toolkit.cli:main"
+winkr = "llm_agent_toolkit.cli:main"
 winkr-query = "llm_agent_toolkit.cli:query_main"
 winkr-edit  = "llm_agent_toolkit.cli:edit_main"
 

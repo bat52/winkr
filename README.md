@@ -51,7 +51,7 @@ python -m pip install -e ".[dev]"
 The package installs these commands:
 
 ```bash
-winkr-agent
+winkr
 winkr-query
 winkr-edit
 ```
@@ -59,14 +59,14 @@ winkr-edit
 `winkr-query` and `winkr-edit` are compatibility entry points. They map to:
 
 ```bash
-winkr-agent query
-winkr-agent edit
+winkr query
+winkr edit
 ```
 
 ## Query a repository
 
 ```bash
-winkr-agent query "Explain the architecture of this project"
+winkr query "Explain the architecture of this project"
 ```
 
 or:
@@ -80,7 +80,7 @@ This runs Aider in a read-oriented mode and logs prompts under `.ai_logs/`.
 ## Edit a repository
 
 ```bash
-winkr-agent edit "Refactor this module to reduce duplication" src/example.py
+winkr edit "Refactor this module to reduce duplication" src/example.py
 ```
 
 or:
@@ -96,14 +96,14 @@ Use `--allow-dirty` only when you intentionally want to let Aider operate on a
 dirty worktree:
 
 ```bash
-winkr-agent edit --allow-dirty "Update docs"
+winkr edit --allow-dirty "Update docs"
 ```
 
 ## Print the Aider command without running it
 
 ```bash
-winkr-agent query --print-command "Summarize this repo"
-winkr-agent edit --print-command "Rename this function" src/foo.py
+winkr query --print-command "Summarize this repo"
+winkr edit --print-command "Rename this function" src/foo.py
 ```
 
 ## API-key discovery
@@ -118,8 +118,8 @@ Credential precedence is:
 Examples:
 
 ```bash
-winkr-agent query --api-key openrouter="$OPENROUTER_API_KEY" "Explain tests"
-winkr-agent edit --api-key deepseek="$DEEPSEEK_API_KEY" "Fix lint"
+winkr query --api-key openrouter="$OPENROUTER_API_KEY" "Explain tests"
+winkr edit --api-key deepseek="$DEEPSEEK_API_KEY" "Fix lint"
 ```
 
 If the explicit value does not include a provider prefix, it is treated as
@@ -138,9 +138,9 @@ The default model tiers are:
 You can use aliases or raw model names:
 
 ```bash
-winkr-agent query --model TIER_FAST "Summarize the package"
-winkr-agent edit --model TIER_CODING "Make the CLI more robust"
-winkr-agent query --model openrouter/anthropic/claude-3.5-sonnet "Review this"
+winkr query --model TIER_FAST "Summarize the package"
+winkr edit --model TIER_CODING "Make the CLI more robust"
+winkr query --model openrouter/anthropic/claude-3.5-sonnet "Review this"
 ```
 
 ## Generate Cline rules
@@ -148,19 +148,19 @@ winkr-agent query --model openrouter/anthropic/claude-3.5-sonnet "Review this"
 Write the reusable Cline rule template to `.clinerules`:
 
 ```bash
-winkr-agent write-rules .clinerules
+winkr write-rules .clinerules
 ```
 
 Overwrite an existing file:
 
 ```bash
-winkr-agent write-rules .clinerules --force
+winkr write-rules .clinerules --force
 ```
 
 ## Optional Cline helper
 
 ```bash
-winkr-agent cline-start
+winkr start
 ```
 
 This runs:
@@ -172,7 +172,7 @@ npx cline
 Start in TUI mode with `--tui` (uses `--tui --auto-condense`):
 
 ```bash
-winkr-agent cline-start --tui
+winkr start --tui
 ```
 
 This runs:
@@ -184,12 +184,12 @@ npx cline --tui --auto-condense
 ## Optional tmux helper
 
 ```bash
-winkr-agent tmux
+winkr tmux
 ```
 
 This opens a two-pane tmux session:
 
-- top pane: `winkr-agent cline-start`
+- top pane: `winkr start`
 - bottom pane: shell
 
 ## Compatibility shims for existing repositories
@@ -199,16 +199,15 @@ old scripts with thin shims:
 
 ```bash
 #!/usr/bin/env bash
-exec winkr-agent query "$@"
+exec winkr query "$@"
 ```
 
 and:
 
 ```bash
 #!/usr/bin/env bash
-exec winkr-agent edit "$@"
+exec winkr edit "$@"
 ```
-
 ## Development
 
 Run tests:

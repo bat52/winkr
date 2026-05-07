@@ -20,7 +20,7 @@ from .rules import write_rules_file
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="winkr-agent",
+        prog="winkr",
         description="Reusable LLM agent workflow toolkit.",
     )
     parser.add_argument(
@@ -74,22 +74,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     write_rules.set_defaults(func=handle_write_rules)
 
-    cline_start = subparsers.add_parser(
-        "cline-start",
+    start = subparsers.add_parser(
+        "start",
         help="Start Cline using npx.",
     )
-    cline_start.add_argument(
+    start.add_argument(
         "--tui",
         action="store_true",
         help="Start Cline in TUI mode with --tui --auto-condense.",
     )
-    cline_start.add_argument(
+    start.add_argument(
         "--print-command",
         action="store_true",
         help="Print the command instead of running it.",
     )
-    cline_start.set_defaults(func=handle_cline_start)
-
+    start.set_defaults(func=handle_start)
     tmux = subparsers.add_parser(
         "tmux",
         help="Start or attach to a two-pane tmux agent session.",
@@ -200,7 +199,7 @@ def handle_write_rules(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_cline_start(args: argparse.Namespace) -> int:
+def handle_start(args: argparse.Namespace) -> int:
     cline_script = Path(__file__).resolve().parents[2] / "scripts" / "cline.sh"
     command = [str(cline_script)]
     if args.tui:
@@ -220,7 +219,7 @@ def handle_tmux(args: argparse.Namespace) -> int:
         ("tmux", "new-session", "-d", "-s", session),
         ("tmux", "rename-window", "-t", session, "main"),
         ("tmux", "split-window", "-v", "-t", session),
-        ("tmux", "send-keys", "-t", f"{session}:0.0", "winkr-agent cline-start", "C-m"),
+        ("tmux", "send-keys", "-t", f"{session}:0.0", "winkr start", "C-m"),
         ("tmux", "send-keys", "-t", f"{session}:0.1", _shell(), "C-m"),
         ("tmux", "select-pane", "-t", f"{session}:0.0"),
         ("tmux", "attach", "-t", session),
