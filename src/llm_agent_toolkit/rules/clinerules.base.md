@@ -199,8 +199,16 @@ Project-specific architecture notes should live in a separate project overlay.
 ##   after any mutation.
 ## - Plan documents (implementation_plan.md) are the source of
 ##   truth for planned work.
+## Token Tracking Procedures:
 ## - Token usage from `winkr query` and `winkr change` MUST be
 ##   tracked and reported.
+## - Agents using winkr orchestrator MUST perform token estimation
+##   prior to executions (using heuristics based on file size and
+##   operation complexity).
+## - Actual usage MUST be tracked at the end of a workflow block
+##   and compared against the initial estimation.
+## - Large discrepancies (+/- 25%) MUST trigger analysis for
+##   potential rule/workflow improvements.
 # ============================================================
 # 5. Fallback & Escalation
 # ============================================================
