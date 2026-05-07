@@ -201,7 +201,8 @@ def handle_write_rules(args: argparse.Namespace) -> int:
 
 
 def handle_cline_start(args: argparse.Namespace) -> int:
-    command = ["npx", "cline"]
+    cline_script = Path(__file__).resolve().parents[2] / "scripts" / "cline.sh"
+    command = [str(cline_script)]
     if args.tui:
         command.extend(["--tui", "--auto-condense"])
     cmd_tuple = tuple(command)
