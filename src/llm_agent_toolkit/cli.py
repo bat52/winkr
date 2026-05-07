@@ -234,27 +234,11 @@ def handle_start(args: argparse.Namespace) -> int:
     if args.tui and args.remote and os.environ.get("TMUX") is None:
         return handle_tmux(args)
 
-    # 1. Start Depwire MCP server in background
-    depwire_mcp_cmd = ["npx", "-y", "depwire-cli", "mcp"]
-    try:
-        # Use Popen to run in background. stdout/stderr are redirected to DEVNULL
-        # to avoid blocking and keep output clean.
-        subprocess.Popen(depwire_mcp_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        print("Depwire MCP server started in background.")
-    except FileNotFoundError:
-        print("Warning: 'npx' or 'depwire-cli' not found. Depwire MCP server not started.", file=sys.stderr)
+    # Depwire MCP server and docs are handled by scripts/cline.sh,
+    # which is the canonical entry point. We avoid duplicating that
+    # work here to prevent resource contention (two MCP servers).
 
-    # 2. Run depwire docs
-    depwire_docs_cmd = ["npx", "-y", "depwire-cli", "docs"]
-    try:
-        print("Running depwire docs...")
-        # This should run synchronously.
-        subprocess.run(depwire_docs_cmd, check=False, capture_output=True, text=True)
-        print("Depwire docs generated.")
-    except FileNotFoundError:
-        print("Warning: 'npx' or 'depwire-cli' not found. Depwire docs not generated.", file=sys.stderr)
-
-    # 3. Launch Cline
+    # Launch Cline via the wrapper script
     cline_script = Path(__file__).resolve().parents[2] / "scripts" / "cline.sh"
     command = [str(cline_script)]
     if args.tui:
