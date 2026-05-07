@@ -9,7 +9,7 @@ MODEL_TIERS: dict[str, str] = {
 }
 
 DEFAULT_QUERY_MODEL = "TIER_FAST"
-DEFAULT_EDIT_MODEL = "TIER_CODING"
+DEFAULT_CHANGE_MODEL = "TIER_CODING"
 
 
 def resolve_model(model: str) -> str:

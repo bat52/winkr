@@ -24,7 +24,7 @@ def ensure_clean_worktree(cwd: Path) -> None:
         raise RuntimeError(completed.stderr.strip() or "git status failed")
     if completed.stdout.strip():
         raise RuntimeError(
-            "Refusing to run edit on a dirty Git worktree. "
+            "Refusing to run change on a dirty Git worktree. "
             "Commit/stash changes or pass --allow-dirty."
         )
 

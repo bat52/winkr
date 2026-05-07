@@ -31,9 +31,9 @@ Project-specific architecture notes should live in a separate project overlay.
 ## Responsibility: High-level task management, workflow selection,
 ##   tool execution, state tracking, agent dispatch.
 ## Allowed: shell commands, targeted file reads, git, test/build
-##   execution, depwire MCP invocation, `winkr-query` invocation,
-##   `winkr-edit` invocation.
-## NOT allowed: direct code editing, inline patch generation,
+##   execution, depwire MCP invocation, `winkr query` invocation,
+##   `winkr change` invocation.
+## NOT allowed: direct code changes, inline patch generation,
 ##   monolithic refactors, uncontrolled exploration.
 ## Input: User task description.
 ## Output: Completed task or escalated failure.
@@ -51,22 +51,22 @@ Project-specific architecture notes should live in a separate project overlay.
 ##   dependency mapping, impact analysis.
 ## Allowed: depwire MCP tools (search_symbols, impact_analysis,
 ##   get_dependencies, get_dependents, get_architecture_summary).
-## NOT allowed: semantic reasoning, code mutation, file editing.
+## NOT allowed: semantic reasoning, code mutation, file changes.
 ## Input: Structural query from Orchestrator.
 ## Output: Structured data (symbol locations, dependency graphs).
 
 ## --- Reasoning Agent ---
 ## Responsibility: Complex logic, semantic code comprehension,
 ##   design intent analysis, natural-language code understanding.
-## Allowed: `winkr-query` with TIER_REASONING model.
+## Allowed: `winkr query` with TIER_REASONING model.
 ## NOT allowed: structural queries (delegate to Repo Intelligence),
-##   code mutation, file editing.
+##   code mutation, file changes.
 ## Input: Semantic query from Orchestrator.
 ## Output: Natural-language analysis or explanation.
 
 ## --- Mutation Agent ---
-## Responsibility: Atomic code edits, commit generation.
-## Allowed: `winkr-edit` with TIER_CODING model.
+## Responsibility: Atomic code changes, commit generation.
+## Allowed: `winkr change` with TIER_CODING model.
 ## NOT allowed: planning, exploration, structural analysis,
 ##   multi-file refactors in a single invocation.
 ## Input: Explicit, scoped, atomic instruction + target files.
@@ -75,7 +75,7 @@ Project-specific architecture notes should live in a separate project overlay.
 ## --- Fast Query Agent ---
 ## Responsibility: Lightweight semantic checks, quick lookups,
 ##   simple code comprehension.
-## Allowed: `winkr-query` with TIER_FAST model.
+## Allowed: `winkr query` with TIER_FAST model.
 ## NOT allowed: structural queries, complex reasoning, mutation.
 ## Input: Simple semantic query.
 ## Output: Brief answer.
@@ -89,7 +89,7 @@ Project-specific architecture notes should live in a separate project overlay.
 ##   complex reasoning. Examples: Claude 3.5 Sonnet, GPT-4o,
 ##   Gemini 2.5 Pro.
 ##   Used by: Planner Agent, Reasoning Agent.
-## TIER_CODING: Models optimized for code generation and editing.
+## TIER_CODING: Models optimized for code generation and changes.
 ##   Examples: DeepSeek Coder, Claude 3.5 Haiku.
 ##   Used by: Mutation Agent.
 ## TIER_FAST: Low-latency, high-context models for quick queries.
@@ -199,7 +199,7 @@ Project-specific architecture notes should live in a separate project overlay.
 ##   after any mutation.
 ## - Plan documents (implementation_plan.md) are the source of
 ##   truth for planned work.
-## - Token usage from `winkr-query` and `winkr-edit` MUST be
+## - Token usage from `winkr query` and `winkr change` MUST be
 ##   tracked and reported.
 # ============================================================
 # 5. Fallback & Escalation
@@ -207,10 +207,10 @@ Project-specific architecture notes should live in a separate project overlay.
 ## Defines behavior when an agent fails or produces unexpected
 ## results.
 ## Agent failure types:
-## - Mutation Agent: `winkr-edit` exits non-zero or produces
+## - Mutation Agent: `winkr change` exits non-zero or produces
 ##   incorrect code.
 ## - Repo Intelligence: depwire MCP returns empty or error.
-## - Reasoning Agent: `winkr-query` returns unclear analysis.
+## - Reasoning Agent: `winkr query` returns unclear analysis.
 ## - Test failure: post-mutation tests fail.
 ## Escalation path:
 ##   1. Orchestrator retries the failed agent once with
@@ -222,9 +222,9 @@ Project-specific architecture notes should live in a separate project overlay.
 ##   4. If Reasoning Agent cannot resolve, Orchestrator reports
 ##      the failure to the user with full context and stops.
 ## Specific fallbacks:
-## - depwire MCP failure → fall back to `winkr-query` with
+## - depwire MCP failure → fall back to `winkr query` with
 ##   TIER_FAST for structural queries.
-## - `winkr-edit` patch failure → fall back to `winkr-edit` with
+## - `winkr change` patch failure → fall back to `winkr change` with
 ##   TIER_REASONING model for the same instruction.
 ## - Test failure → dispatch DEBUG_WORKFLOW.
 # ============================================================
@@ -232,47 +232,47 @@ Project-specific architecture notes should live in a separate project overlay.
 # ============================================================
 ## Non-negotiable constraints that apply to all workflows.
 ## - Never modify files directly.
-## - Never use built-in editing/write tools.
+## - Never use built-in change/write tools.
 ## - Never output inline patches or diffs.
 ## - All repository mutations MUST go through:
-##     `winkr-edit`
+##     `winkr change`
 ## - Repository intelligence queries MUST preferentially use
-##   depwire MCP tools over `winkr-query` for structural questions.
-## - Use `winkr-query` only as a semantic fallback when depwire
+##   depwire MCP tools over `winkr query` for structural questions.
+## - Use `winkr query` only as a semantic fallback when depwire
 ##   cannot answer.
-## - Always prefer shell execution over internal editing.
+## - Always prefer shell execution over internal changes.
 ## - Never batch large unrelated changes.
 ## - Prefer many small commits over giant changes.
 # ============================================================
 # 7. Instruction Quality Rules
 # ============================================================
-## Instructions sent to `winkr-edit` MUST be:
+## Instructions sent to `winkr change` MUST be:
 ## - explicit
 ## - deterministic
 ## - scoped
 ## - atomic
 ## GOOD:
-##     winkr-edit \
+##     winkr change \
 ##       "Add API key authentication support to auth.py and config.py. Preserve existing password login behavior." \
 ##       auth.py config.py
 ## BAD:
-##     winkr-edit "improve authentication"
+##     winkr change "improve authentication"
 # ============================================================
 # 8. Self-Check Before Every Mutation
 # ============================================================
 ## Before any repository mutation, verify:
-## 1. Am I using `winkr-edit`?
+## 1. Am I using `winkr change`?
 ## 2. Did I specify explicit target files?
 ## 3. Is this a single atomic change?
 ## 4. Should repository understanding be delegated to depwire
-##    MCP tools first (then `winkr-query` for semantic needs)?
+##    MCP tools first (then `winkr query` for semantic needs)?
 ## 5. Do I need to re-read repository state after execution?
 ##
 ## If any answer is NO: stop and reformulate the action.
 # ============================================================
 # 9. API Key Resolution
 # ============================================================
-## Order of precedence for `winkr-edit` and `winkr-query`:
+## Order of precedence for `winkr change` and `winkr query`:
 ## 1. --api-key / -k flag
 ## 2. OPENROUTER_API_KEY env var
 ## 3. AIDER_API_KEY env var (legacy, treated as deepseek)

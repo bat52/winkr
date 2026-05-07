@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
-from .config import DEFAULT_EDIT_MODEL, DEFAULT_QUERY_MODEL, resolve_model
+from .config import DEFAULT_CHANGE_MODEL, DEFAULT_QUERY_MODEL, resolve_model
 from .credentials import ResolvedApiKey
 
 
@@ -46,16 +46,16 @@ def build_query_command(
     return AiderCommand(tuple(argv))
 
 
-def build_edit_command(
+def build_change_command(
     prompt: str,
     api_key: ResolvedApiKey,
     model: str | None = None,
     files: Sequence[str] = (),
     extra_args: Sequence[str] = (),
 ) -> AiderCommand:
-    """Build the Aider command for mutation-oriented edits."""
+    """Build the Aider command for mutation-oriented changes."""
 
-    selected_model = resolve_model(model or DEFAULT_EDIT_MODEL)
+    selected_model = resolve_model(model or DEFAULT_CHANGE_MODEL)
     argv = [
         "aider",
         "--api-key",

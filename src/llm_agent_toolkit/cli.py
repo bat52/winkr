@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Sequence
 
 from . import __version__
-from .aider import build_edit_command, build_query_command, run_command, validate_prompt
+from .aider import build_change_command, build_query_command, run_command, validate_prompt
 from .config import MODEL_TIERS
 from .credentials import resolve_api_key
 from .git_safety import ensure_clean_worktree
@@ -40,23 +40,23 @@ def build_parser() -> argparse.ArgumentParser:
     query.add_argument("prompt", help="Prompt/question to send to Aider.")
     query.set_defaults(func=handle_query)
 
-    edit = subparsers.add_parser(
-        "edit",
+    change = subparsers.add_parser(
+        "change",
         help="Ask Aider to mutate files.",
     )
-    add_common_aider_args(edit)
-    edit.add_argument(
+    add_common_aider_args(change)
+    change.add_argument(
         "--allow-dirty",
         action="store_true",
-        help="Allow edits when the Git worktree is dirty.",
+        help="Allow changes when the Git worktree is dirty.",
     )
-    edit.add_argument("prompt", help="Instruction to send to Aider.")
-    edit.add_argument(
+    change.add_argument("prompt", help="Instruction to send to Aider.")
+    change.add_argument(
         "files",
         nargs="*",
         help="Optional file paths to pass to Aider.",
     )
-    edit.set_defaults(func=handle_edit)
+    change.set_defaults(func=handle_change)
 
     write_rules = subparsers.add_parser(
         "write-rules",
@@ -194,7 +194,7 @@ def handle_query(args: argparse.Namespace) -> int:
     return run_command(command)
 
 
-def handle_edit(args: argparse.Namespace) -> int:
+def handle_change(args: argparse.Namespace) -> int:
     validate_prompt(args.prompt)
     if not args.allow_dirty:
         ensure_clean_worktree(Path.cwd())
@@ -204,7 +204,7 @@ def handle_edit(args: argparse.Namespace) -> int:
         print("ERROR: no API key found.", file=sys.stderr)
         return 2
 
-    command = build_edit_command(
+    command = build_change_command(
         prompt=args.prompt,
         api_key=api_key,
         model=args.model,
@@ -213,7 +213,7 @@ def handle_edit(args: argparse.Namespace) -> int:
     )
 
     if not args.no_log:
-        log_prompt("edit", args.prompt, command.shell_string())
+        log_prompt("change", args.prompt, command.shell_string())
 
     if args.print_command:
         print(command.shell_string())
@@ -346,14 +346,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     return int(args.func(args))
-
-
-def query_main(argv: Sequence[str] | None = None) -> int:
-    return main(["query", *(argv if argv is not None else sys.argv[1:])])
-
-
-def edit_main(argv: Sequence[str] | None = None) -> int:
-    return main(["edit", *(argv if argv is not None else sys.argv[1:])])
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from llm_agent_toolkit.aider import (
-    build_edit_command,
+    build_change_command,
     build_query_command,
     validate_prompt,
 )
@@ -26,10 +26,10 @@ def test_build_query_command_resolves_tier() -> None:
     )
 
 
-def test_build_edit_command_includes_files() -> None:
+def test_build_change_command_includes_files() -> None:
     key = ResolvedApiKey("deepseek", "secret", "test")
 
-    command = build_edit_command(
+    command = build_change_command(
         "refactor",
         key,
         model="TIER_CODING",

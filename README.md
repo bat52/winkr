@@ -5,7 +5,7 @@
 It provides installable Python console commands for:
 
 - Aider-backed read-only repository queries.
-- Aider-backed code edits with dirty-worktree safeguards.
+- Aider-backed code changes with dirty-worktree safeguards.
 - Reusable model-tier aliases.
 - Shared API-key discovery.
 - Generating reusable Cline rule templates.
@@ -52,15 +52,15 @@ The package installs these commands:
 
 ```bash
 winkr
-winkr-query
-winkr-edit
+winkr query
+winkr change
 ```
 
-`winkr-query` and `winkr-edit` are compatibility entry points. They map to:
+`winkr query` and `winkr change` are compatibility entry points. They map to:
 
 ```bash
 winkr query
-winkr edit
+winkr change
 ```
 
 ## Query a repository
@@ -72,38 +72,38 @@ winkr query "Explain the architecture of this project"
 or:
 
 ```bash
-winkr-query "Explain the architecture of this project"
+winkr query "Explain the architecture of this project"
 ```
 
 This runs Aider in a read-oriented mode and logs prompts under `.ai_logs/`.
 
-## Edit a repository
+## Change a repository
 
 ```bash
-winkr edit "Refactor this module to reduce duplication" src/example.py
+winkr change "Refactor this module to reduce duplication" src/example.py
 ```
 
 or:
 
 ```bash
-winkr-edit "Refactor this module to reduce duplication" src/example.py
+winkr change "Refactor this module to reduce duplication" src/example.py
 ```
 
-By default, `edit` refuses to run when the Git worktree is dirty. This protects
+By default, `change` refuses to run when the Git worktree is dirty. This protects
 existing human changes.
 
 Use `--allow-dirty` only when you intentionally want to let Aider operate on a
 dirty worktree:
 
 ```bash
-winkr edit --allow-dirty "Update docs"
+winkr change --allow-dirty "Update docs"
 ```
 
 ## Print the Aider command without running it
 
 ```bash
 winkr query --print-command "Summarize this repo"
-winkr edit --print-command "Rename this function" src/foo.py
+winkr change --print-command "Rename this function" src/foo.py
 ```
 
 ## API-key discovery
@@ -119,7 +119,7 @@ Examples:
 
 ```bash
 winkr query --api-key openrouter="$OPENROUTER_API_KEY" "Explain tests"
-winkr edit --api-key deepseek="$DEEPSEEK_API_KEY" "Fix lint"
+winkr change --api-key deepseek="$DEEPSEEK_API_KEY" "Fix lint"
 ```
 
 If the explicit value does not include a provider prefix, it is treated as
@@ -139,7 +139,7 @@ You can use aliases or raw model names:
 
 ```bash
 winkr query --model TIER_FAST "Summarize the package"
-winkr edit --model TIER_CODING "Make the CLI more robust"
+winkr change --model TIER_CODING "Make the CLI more robust"
 winkr query --model openrouter/anthropic/claude-3.5-sonnet "Review this"
 ```
 
@@ -213,7 +213,7 @@ This opens a two-pane tmux session:
 
 ## Compatibility shims for existing repositories
 
-If an existing repo expects `llm/ai_query.sh` and `llm/ai_edit.sh`, replace the
+If an existing repo expects `llm/ai_query.sh` and `llm/ai_change.sh`, replace the
 old scripts with thin shims:
 
 ```bash
@@ -225,7 +225,7 @@ and:
 
 ```bash
 #!/usr/bin/env bash
-exec winkr edit "$@"
+exec winkr change "$@"
 ```
 ## Development
 

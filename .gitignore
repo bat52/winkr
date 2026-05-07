@@ -9,5 +9,7 @@ package.json
 node_modules/*
 *-edit.md
 *-query.md
+*-change.md
 test_venv/*
 .depwire/
+

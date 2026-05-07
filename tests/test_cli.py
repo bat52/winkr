@@ -9,7 +9,7 @@ import pytest
 
 # Import the modules to test
 try:
-    from llm_agent_toolkit.cli import build_parser, handle_query, handle_edit, handle_write_rules, handle_start, handle_tmux, handle_tiers
+    from llm_agent_toolkit.cli import build_parser, handle_query, handle_change, handle_write_rules, handle_start, handle_tmux, handle_tiers
     from llm_agent_toolkit.init_command import handle_init, install_pip_package
 except ImportError:
     pytest.fail("Could not import CLI modules. Ensure PYTHONPATH includes 'src'.")
@@ -138,9 +138,9 @@ def test_handle_query(mock_build_query, mock_resolve_api_key, mock_run_command):
 
 @patch("llm_agent_toolkit.cli.ensure_clean_worktree")
 @patch("llm_agent_toolkit.cli.resolve_api_key")
-@patch("llm_agent_toolkit.cli.build_edit_command")
+@patch("llm_agent_toolkit.cli.build_change_command")
 @patch("llm_agent_toolkit.cli.run_command")
-def test_handle_edit(mock_run_command, mock_build_edit, mock_resolve_api_key, mock_ensure_clean_worktree):
+def test_handle_change(mock_run_command, mock_build_change, mock_resolve_api_key, mock_ensure_clean_worktree):
     mock_args = MagicMock(spec=argparse.Namespace)
     mock_args.prompt = "Fix the bug in main.py"
     mock_args.files = ["main.py"]
@@ -156,10 +156,10 @@ def test_handle_edit(mock_run_command, mock_build_edit, mock_resolve_api_key, mo
     mock_run_command.return_value = 0
 
     mock_command = MagicMock()
-    mock_command.shell_string.return_value = "mock aider edit command"
-    mock_build_edit.return_value = mock_command
+    mock_command.shell_string.return_value = "mock aider change command"
+    mock_build_change.return_value = mock_command
 
-    return_code = handle_edit(mock_args)
+    return_code = handle_change(mock_args)
 
     assert return_code == 0
 
@@ -182,6 +182,8 @@ def test_handle_start(mock_path, mock_subprocess_run):
 
     mock_args = MagicMock(spec=argparse.Namespace)
     mock_args.tui = True
+    mock_args.remote = False
+    mock_args.split = False
     mock_args.print_command = True
 
     mock_run_result = MagicMock()
@@ -203,6 +205,8 @@ def test_handle_tmux(mock_shell, mock_short_hostname, mock_path, mock_subprocess
     mock_path.return_value.name = "winkr"
 
     mock_args = MagicMock(spec=argparse.Namespace)
+    mock_args.tui = False
+    mock_args.split = False
     mock_args.print_command = True
 
     mock_subprocess_run.return_value = MagicMock(returncode=0)
