@@ -14,3 +14,4 @@ test_venv/*
 .depwire/
 .git/hooks/pre-commit.bak.*
 
+scripts/aider_cfg.sh
