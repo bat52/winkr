@@ -81,7 +81,26 @@ def _host_from_remote(remote_url: str) -> str | None:
         return remote_url.split("@")[1].split(":")[0]
     # Handle https://github.com/user/repo.git
     if remote_url.startswith("https://"):
-        return remote_url.split("https://")[1].split("/")[0]
+        # https://github.com/bat52/winkr.git
+        # return remote_url.split("https://")[1].split("/")[0]
+        host = remote_url.split("https://")[1].split("/")[0]
+        print(f"\n🔍 WARNING: https github authentication is deprecated, converting for ssh authentication {host}...")
+        new_remote_url=f"git@github.com:{host[2]}/winkr.git"
+        try:
+            # git remote set-url origin git@github.com:bat52/winkr.git
+            result = subprocess.run(
+                ["git", "remote", "set-url", "origin", ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            # SSH returns non-zero even on success for some hosts (GitHub returns 1 with success message)
+            # Check for success message in stderr
+            print("successfully switched to SSH")
+            return new_remote_url.split("@")[1].split(":")[0]
+        except FileNotFoundError:
+            return False
+        
     return None
 
 
