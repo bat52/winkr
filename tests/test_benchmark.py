@@ -13,6 +13,7 @@ from llm_agent_toolkit.benchmark import (
     TokenSnapshot,
     capture_cline_task_history_tokens,
     capture_litellm_tokens,
+    check_winkr_change_marker,
     compare,
     estimate_tokens_from_chars,
     render_report,
@@ -225,6 +226,29 @@ class TestEstimateTokensFromChars:
 
 
 # ---------------------------------------------------------------------------
+# check_winkr_change_marker
+# ---------------------------------------------------------------------------
+
+
+class TestCheckWinkrChangeMarker:
+    def test_marker_present(self) -> None:
+        stderr = "some output\n[WINKR-CHANGE] Delegating mutation to Aider...\nmore output"
+        assert check_winkr_change_marker(stderr) is True
+
+    def test_marker_absent(self) -> None:
+        stderr = "some output\nno marker here\n"
+        assert check_winkr_change_marker(stderr) is False
+
+    def test_empty_stderr(self) -> None:
+        assert check_winkr_change_marker("") is False
+
+    def test_partial_marker(self) -> None:
+        """A substring like 'WINKR' should not match."""
+        stderr = "WINKR-CHANGE without brackets"
+        assert check_winkr_change_marker(stderr) is False
+
+
+# ---------------------------------------------------------------------------
 # compare
 # ---------------------------------------------------------------------------
 
@@ -355,6 +379,10 @@ class TestRenderReport:
         assert "450" in report  # flow_b total
         assert "10.5" in report  # flow_a wall clock
         assert "8.2" in report  # flow_b wall clock
+
+        # Check winkr_change marker field appears
+        assert "Used ``winkr change``" in report
+        assert "No" in report  # default is False
 
     def test_different_diffs_verdict(self) -> None:
         flow_a = FlowMeasurement(

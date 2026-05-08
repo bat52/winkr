@@ -67,6 +67,8 @@ class FlowMeasurement:
     cache_writes: int = 0
     cache_reads: int = 0
     context_size: int = 0  # bytes
+    used_winkr_change: bool = False
+    """Whether Flow A's stderr contained the [WINKR-CHANGE] marker."""
 
     @property
     def total_prompt_tokens(self) -> int:
@@ -219,6 +221,34 @@ def capture_cline_task_history_tokens(
 def estimate_tokens_from_chars(text: str) -> int:
     """Rough token estimate: ~4 characters per token."""
     return len(text) // 4
+
+
+# ---------------------------------------------------------------------------
+# WINKR-CHANGE marker detection
+# ---------------------------------------------------------------------------
+
+
+_WINKR_CHANGE_MARKER = "[WINKR-CHANGE]"
+
+
+def check_winkr_change_marker(stderr: str) -> bool:
+    """Check if stderr contains the [WINKR-CHANGE] marker.
+
+    The marker is printed by ``winkr change`` to stderr when it delegates
+    a mutation to Aider. If present, it confirms that Cline actually used
+    ``winkr change`` instead of editing files directly.
+
+    Parameters
+    ----------
+    stderr:
+        The stderr output from the Cline invocation.
+
+    Returns
+    -------
+    bool
+        True if the marker was found in stderr.
+    """
+    return _WINKR_CHANGE_MARKER in stderr
 
 
 # ---------------------------------------------------------------------------
@@ -424,12 +454,14 @@ def run_flow_a(repo_path: Path, task: str) -> FlowMeasurement:
 
     diff_stat = _get_diff_stat(repo_path)
     meta = _extract_task_meta(repo_path)
+    used_winkr_change = check_winkr_change_marker(stderr)
 
     return FlowMeasurement(
         flow="cline_aider",
         steps=steps,
         wall_clock_seconds=elapsed,
         git_diff_stat=diff_stat,
+        used_winkr_change=used_winkr_change,
         **meta,
     )
 
@@ -498,6 +530,8 @@ def render_report(result: BenchmarkResult) -> str:
         f"- Cache writes: {result.cline_aider.cache_writes:,} / "
         f"reads: {result.cline_aider.cache_reads:,}",
         f"- Context size: {result.cline_aider.context_size:,} bytes",
+        f"- Used ``winkr change``: "
+        f"{'Yes' if result.cline_aider.used_winkr_change else 'No'}",
         "",
         "## Flow B: Cline only",
         f"- Total tokens: {result.cline_only.total_tokens:,} "

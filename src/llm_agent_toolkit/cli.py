@@ -14,7 +14,7 @@ from .aider import build_change_command, build_query_command, run_command, valid
 from .commands import run_browser, run_editor
 from .config import MODEL_TIERS
 from .credentials import resolve_api_key
-from .enforcer import check_commits, check_pending_changes
+from .enforcer import check_commits, check_pending_changes, check_worktree_block
 from .git_safety import ensure_clean_worktree
 from .init_command import handle_init  # Import the new handler
 from .logging_utils import log_prompt
@@ -171,6 +171,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     enforcer_check.set_defaults(func=handle_enforcer_check)
 
+    enforcer_block = enforcer_sub.add_parser(
+        "block",
+        help="Blocking pre-mutation check. Exits non-zero if policy violations exist.",
+    )
+    enforcer_block.set_defaults(func=handle_enforcer_block)
+
     enforcer_install = enforcer_sub.add_parser(
         "install-hooks",
         help="Install the pre-commit hook into .git/hooks/.",
@@ -266,6 +272,7 @@ def handle_change(args: argparse.Namespace) -> int:
         print(command.shell_string())
         return 0
 
+    print("[WINKR-CHANGE] Delegating mutation to Aider...", file=sys.stderr)
     return run_command(command)
 
 
@@ -383,6 +390,16 @@ def handle_enforcer_check(args: argparse.Namespace) -> int:
         print(f"[PASS] {result.reason}")
         return 0
     print(f"[WARN] {result.reason}")
+    return 1
+
+
+def handle_enforcer_block(args: argparse.Namespace) -> int:
+    """Handle ``winkr enforcer block`` — hard pre-mutation gate."""
+    result = check_worktree_block()
+    if result.passed:
+        print(f"[PASS] {result.reason}")
+        return 0
+    print(f"[BLOCK] {result.reason}", file=sys.stderr)
     return 1
 
 

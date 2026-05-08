@@ -1,3 +1,7 @@
+# ⛔ CRITICAL: You MUST use `winkr change` for ALL code changes. NEVER use write_to_file or replace_in_file tools.
+# ⛔ CRITICAL: Run `winkr enforcer block` before ANY mutation. If it exits non-zero, STOP and reformulate.
+# ⛔ CRITICAL: All repository mutations MUST go through Aider via `winkr change`.
+
 # winkr reusable Cline rules
 
 These rules describe a reusable multi-agent workflow layer.
@@ -5,14 +9,11 @@ These rules describe a reusable multi-agent workflow layer.
 Project-specific architecture notes should live in a separate project overlay.
 
 # ============================================================
-# Multi-Agent Workflow Specification
+# Architecture
 # ============================================================
-## This file defines a modular orchestration layer for Cline.
 ## Cline acts as the Orchestrator, delegating specialized work
 ## to Agent Roles via abstract Model Tiers and reusable Workflow
 ## Blocks.
-
-## Architecture:
 
 ##   Orchestrator (Cline)
 ##     ├── Planner Agent        (TIER_REASONING)
@@ -103,7 +104,7 @@ Project-specific architecture notes should live in a separate project overlay.
 ##   Used by: Fast Query Agent.
 ## Default model mapping (override via --model flag):
 ##   TIER_REASONING → openrouter/google/gemini-2.5-flash
-##   TIER_CODING    → openrouter/deepseek/deepseek-coder
+##   TIER_CODING    → openrouter/deepseek/deepseek-chat
 ##   TIER_FAST      → openrouter/google/gemini-2.5-flash
 ## Routing rules:
 ## - Never use a coding model for repo-wide reasoning.
@@ -278,7 +279,7 @@ Project-specific architecture notes should live in a separate project overlay.
 ## maintaining visibility into policy compliance.
 ## 
 ## Before every mutation, the Orchestrator MUST run:
-##     winkr enforcer check
+##     winkr enforcer block
 ## to verify the working tree is compliant. If the check returns
 ## [WARN], the Orchestrator MUST reformulate the change as a
 ## `winkr change` invocation before proceeding.
@@ -306,10 +307,10 @@ Project-specific architecture notes should live in a separate project overlay.
 ## 4. Should repository understanding be delegated to depwire
 ##    MCP tools first (then `winkr query` for semantic needs)?
 ## 5. Do I need to re-read repository state after execution?
-## 6. Have I run `winkr enforcer check` to verify compliance?
+## 6. Have I run `winkr enforcer block` to verify compliance?
 ##
 ## If any answer is NO: stop and reformulate the action.
-## If check 6 fails: run `winkr enforcer check` and address warnings.
+## If check 6 fails: run `winkr enforcer block` and address warnings.
 # ============================================================
 # 9. API Key Resolution
 # ============================================================
@@ -336,13 +337,13 @@ Project-specific architecture notes should live in a separate project overlay.
 ## 11a. Pre-Mutation Check
 ## -----------------------
 ## Before writing any code, run:
-##     winkr enforcer check
+##     winkr enforcer block
 ## If the output contains [WARN], the working tree has policy
 ## violations. DO NOT proceed with mutation. Instead:
 ##   1. Identify which files triggered the warning.
 ##   2. If the files are winkr-managed (.clinerules, etc.), use
 ##      `winkr change` to make the modification instead.
-##   3. Re-run `winkr enforcer check` to confirm [PASS].
+##   3. Re-run `winkr enforcer block` to confirm [PASS].
 ##
 ## 11b. Post-Commit Audit
 ## ----------------------

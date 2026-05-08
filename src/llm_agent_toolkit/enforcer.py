@@ -276,6 +276,69 @@ def check_pending_changes(cwd: Path | None = None) -> EnforcerResult:
     )
 
 
+def check_worktree_block(cwd: Path | None = None) -> EnforcerResult:
+    """Blocking check: exit non-zero if the worktree has policy violations.
+
+    This is the **hard enforcement** variant of ``check_pending_changes``.
+    It checks both staged and unstaged changes for winkr-managed file
+    violations. Cline MUST run this before every mutation.
+
+    Unlike ``check_pending_changes``, this function:
+    - Checks both staged AND unstaged changes (``git diff HEAD``)
+    - Returns ``passed=False`` with a non-zero exit code for violations
+    - Is designed to be used as a pre-mutation gate
+
+    Parameters
+    ----------
+    cwd:
+        Working directory for Git commands.
+
+    Returns
+    -------
+    EnforcerResult
+        ``passed=False`` if any policy violations are detected.
+    """
+    workdir = cwd or Path.cwd()
+
+    # Check staged changes
+    staged_result = check_pending_changes(cwd=workdir)
+    if not staged_result.passed:
+        return staged_result
+
+    # Check unstaged changes (working tree vs HEAD)
+    diff_result = subprocess.run(
+        ("git", "diff", "HEAD", "--stat"),
+        cwd=workdir,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    diff_stat = diff_result.stdout.strip()
+
+    if not diff_stat:
+        return EnforcerResult(passed=True, reason="No changes detected — worktree is clean.")
+
+    touched_files = _parse_touched_files(diff_stat)
+    violations = touched_files & _WINKR_MANAGED_FILES
+
+    if violations:
+        return EnforcerResult(
+            passed=False,
+            reason=(
+                "BLOCKED: Direct edit detected on winkr-managed files: "
+                f"{', '.join(sorted(violations))}. "
+                "Use `winkr change` for repository mutations."
+            ),
+            stats={"violations": len(violations), "total_files": len(touched_files)},
+        )
+
+    return EnforcerResult(
+        passed=True,
+        reason=f"{len(touched_files)} file(s) changed — no policy violations.",
+        stats={"total_files": len(touched_files)},
+    )
+
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
