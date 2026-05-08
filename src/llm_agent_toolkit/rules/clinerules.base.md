@@ -32,7 +32,13 @@ Project-specific architecture notes should live in a separate project overlay.
 ##   tool execution, state tracking, agent dispatch.
 ## Allowed: shell commands, targeted file reads, git, test/build
 ##   execution, depwire MCP invocation, `winkr query` invocation,
-##   `winkr change` invocation.
+##   `winkr change` invocation, `winkr edit` invocation, `winkr browse` invocation.
+## Shortcuts:
+##   - When the user types `/edit @<file>`, the Orchestrator MUST
+##     execute `winkr edit <file>`.
+##   - When the user types `/browse` or `/browse <path>`, the
+##     Orchestrator MUST execute `winkr browse <path>` (defaulting
+##     to `.` if no path is provided).
 ## NOT allowed: direct code changes, inline patch generation,
 ##   monolithic refactors, uncontrolled exploration.
 ## Input: User task description.
@@ -201,7 +207,7 @@ Project-specific architecture notes should live in a separate project overlay.
 ##   truth for planned work. All plan should include an estimated 
 ##   token usage for each step of the plan.
 ## Token Tracking Procedures:
-## - Token usage from `winkr query` and `winkr change` MUST be
+## - Token usage from agents execution MUST be
 ##   tracked and reported.
 ## - Agents using winkr orchestrator MUST perform token estimation
 ##   prior to executions (using heuristics based on file size and

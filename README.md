@@ -56,20 +56,7 @@ winkr query
 winkr change
 ```
 
-`winkr query` and `winkr change` are compatibility entry points. They map to:
-
-```bash
-winkr query
-winkr change
-```
-
 ## Query a repository
-
-```bash
-winkr query "Explain the architecture of this project"
-```
-
-or:
 
 ```bash
 winkr query "Explain the architecture of this project"
@@ -78,12 +65,6 @@ winkr query "Explain the architecture of this project"
 This runs Aider in a read-oriented mode and logs prompts under `.ai_logs/`.
 
 ## Change a repository
-
-```bash
-winkr change "Refactor this module to reduce duplication" src/example.py
-```
-
-or:
 
 ```bash
 winkr change "Refactor this module to reduce duplication" src/example.py
@@ -210,6 +191,48 @@ This opens a two-pane tmux session:
 
 - top pane: `winkr start`
 - bottom pane: shell
+
+## Cline chat shortcuts (`/edit` and `/browse`)
+
+When the `.clinerules` file is present in your project (generated via `winkr write-rules`),
+Cline recognizes these shortcuts in the chat:
+
+| In chat | What Cline does |
+|---|---|
+| `/edit @<file>` | `winkr edit <file>` — opens file in your editor |
+| `/browse` | `winkr browse .` — opens ranger in current directory |
+| `/browse <path>` | `winkr browse <path>` — opens ranger at the given path |
+
+These are **not built-in Cline features** — they are custom shortcuts defined in the
+`.clinerules` file that instruct Cline (the Orchestrator) to execute the corresponding
+`winkr` command.
+
+### `winkr edit`
+
+Opens a file in your configured editor. It checks:
+
+1. `$EDITOR` environment variable
+2. VS Code (`code` command)
+3. Falls back to `nano`
+
+```bash
+winkr edit src/llm_agent_toolkit/cli.py
+```
+
+### `winkr browse`
+
+Opens a terminal file browser (default: `ranger`) at the given path.
+
+```bash
+winkr browse              # current directory
+winkr browse src          # src/ directory
+```
+
+Override the browser with the `WINKR_BROWSER` environment variable:
+
+```bash
+export WINKR_BROWSER=lf   # use lf instead of ranger
+```
 
 ## Compatibility shims for existing repositories
 

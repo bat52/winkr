@@ -11,10 +11,11 @@ from typing import Sequence
 
 from . import __version__
 from .aider import build_change_command, build_query_command, run_command, validate_prompt
+from .commands import run_browser, run_editor
 from .config import MODEL_TIERS
 from .credentials import resolve_api_key
 from .git_safety import ensure_clean_worktree
-from .init_command import handle_init # Import the new handler
+from .init_command import handle_init  # Import the new handler
 from .logging_utils import log_prompt
 from .rules import write_rules_file
 
@@ -82,6 +83,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     # No specific arguments for init command yet, but could be added later
     init.set_defaults(func=handle_init)
+
+    # Add new 'edit' subcommand
+    edit = subparsers.add_parser(
+        "edit",
+        help="Open a file in your default editor.",
+    )
+    edit.add_argument("file", help="Path to the file to edit.")
+    edit.set_defaults(func=handle_edit)
+
+    # Add new 'browse' subcommand
+    browse = subparsers.add_parser(
+        "browse",
+        help="Open a file browser (ranger) at the given path.",
+    )
+    browse.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Path to open in the file browser. Defaults to current directory.",
+    )
+    browse.set_defaults(func=handle_browse)
 
     start = subparsers.add_parser(
         "start",
@@ -229,6 +251,16 @@ def handle_write_rules(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_edit(args: argparse.Namespace) -> int:
+    """Handles the 'edit' command."""
+    return run_editor(args.file)
+
+
+def handle_browse(args: argparse.Namespace) -> int:
+    """Handles the 'browse' command."""
+    return run_browser(args.path)
+
+
 def handle_start(args: argparse.Namespace) -> int:
     # If --tui and --remote are present, launch in tmux unless already in tmux
     if args.tui and args.remote and os.environ.get("TMUX") is None:
@@ -243,8 +275,8 @@ def handle_start(args: argparse.Namespace) -> int:
     command = [str(cline_script)]
     if args.tui:
         command.extend(["--tui", "--auto-condense"])
-    
-    # Note: --remote and --split are handled by handle_tmux if applicable, 
+
+    # Note: --remote and --split are handled by handle_tmux if applicable,
     # but we pass them to cline.sh just in case it needs them.
     if args.remote:
         command.append("--remote")
@@ -262,7 +294,7 @@ def handle_start(args: argparse.Namespace) -> int:
 
 def handle_tmux(args: argparse.Namespace) -> int:
     session = f"agent-{Path.cwd().name}-{_short_hostname()}"
-    
+
     # Base command to run inside tmux
     inner_cmd = "winkr start"
     if args.tui:
@@ -276,7 +308,7 @@ def handle_tmux(args: argparse.Namespace) -> int:
         ("tmux", "new-session", "-d", "-s", session),
         ("tmux", "rename-window", "-t", session, "main"),
     ]
-    
+
     # Add commands for the first pane
     commands.append(("tmux", "send-keys", "-t", f"{session}:0.0", inner_cmd, "C-m"))
 
