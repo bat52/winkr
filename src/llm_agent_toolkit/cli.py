@@ -16,6 +16,7 @@ from .config import MODEL_TIERS
 from .credentials import resolve_api_key
 from .enforcer import check_commits, check_pending_changes, check_worktree_block
 from .git_safety import ensure_clean_worktree
+from .git_setup import setup_git_ssh
 from .init_command import handle_init  # Import the new handler
 from .logging_utils import log_prompt
 from .rules import write_rules_file
@@ -188,6 +189,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print configured model tiers.",
     )
     tiers.set_defaults(func=handle_tiers)
+
+    git_setup = subparsers.add_parser(
+        "git-setup",
+        help="Set up SSH key and configure Git remote for frictionless pushes.",
+    )
+    git_setup.set_defaults(func=handle_git_setup)
 
     return parser
 
@@ -419,6 +426,11 @@ def handle_tiers(args: argparse.Namespace) -> int:
     for name, model in MODEL_TIERS.items():
         print(f"{name}={model}")
     return 0
+
+
+def handle_git_setup(args: argparse.Namespace) -> int:
+    """Handle ``winkr git-setup``."""
+    return setup_git_ssh()
 
 
 def _short_hostname() -> str:
