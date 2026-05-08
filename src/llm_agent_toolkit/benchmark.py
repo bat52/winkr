@@ -513,8 +513,32 @@ def compare(
 # ---------------------------------------------------------------------------
 
 
+def _token_source_label(measurement: FlowMeasurement) -> str:
+    """Return a label describing where token data came from."""
+    sources = {s.source for s in measurement.steps}
+    if "litellm" in sources:
+        return "litellm (Aider LLM calls)"
+    if "cline_task_history" in sources:
+        return "Cline task history"
+    if measurement.steps:
+        return "mixed"
+    return "none (using char estimate)"
+
+
+def _estimated_tokens(measurement: FlowMeasurement) -> int | None:
+    """Return estimated tokens from char count if no real token data exists."""
+    if measurement.total_tokens > 0:
+        return None  # real data available
+    if measurement.context_size > 0:
+        return estimate_tokens_from_chars(str(measurement.context_size))
+    return None
+
+
 def render_report(result: BenchmarkResult) -> str:
     """Render a ``BenchmarkResult`` as a Markdown report."""
+    flow_a_est = _estimated_tokens(result.cline_aider)
+    flow_b_est = _estimated_tokens(result.cline_only)
+
     lines = [
         "# Token Efficiency Benchmark Report",
         "",
@@ -524,6 +548,7 @@ def render_report(result: BenchmarkResult) -> str:
         f"- Total tokens: {result.cline_aider.total_tokens:,} "
         f"(prompt: {result.cline_aider.total_prompt_tokens:,} / "
         f"completion: {result.cline_aider.total_completion_tokens:,})",
+        f"- Token source: {_token_source_label(result.cline_aider)}",
         f"- Wall clock: {result.cline_aider.wall_clock_seconds:.1f} seconds",
         f"- Steps: {len(result.cline_aider.steps)} LLM calls",
         f"- Cost: ${result.cline_aider.total_cost:.4f}",
@@ -532,17 +557,20 @@ def render_report(result: BenchmarkResult) -> str:
         f"- Context size: {result.cline_aider.context_size:,} bytes",
         f"- Used ``winkr change``: "
         f"{'Yes' if result.cline_aider.used_winkr_change else 'No'}",
+        *([f"- Estimated tokens (char-based): {flow_a_est:,}"] if flow_a_est is not None else []),
         "",
         "## Flow B: Cline only",
         f"- Total tokens: {result.cline_only.total_tokens:,} "
         f"(prompt: {result.cline_only.total_prompt_tokens:,} / "
         f"completion: {result.cline_only.total_completion_tokens:,})",
+        f"- Token source: {_token_source_label(result.cline_only)}",
         f"- Wall clock: {result.cline_only.wall_clock_seconds:.1f} seconds",
         f"- Steps: {len(result.cline_only.steps)} LLM calls",
         f"- Cost: ${result.cline_only.total_cost:.4f}",
         f"- Cache writes: {result.cline_only.cache_writes:,} / "
         f"reads: {result.cline_only.cache_reads:,}",
         f"- Context size: {result.cline_only.context_size:,} bytes",
+        *([f"- Estimated tokens (char-based): {flow_b_est:,}"] if flow_b_est is not None else []),
         "",
         "## Comparison",
         f"- Delta (B - A): {result.delta_total_tokens:+,} tokens "

@@ -17,6 +17,8 @@ from llm_agent_toolkit.benchmark import (
     compare,
     estimate_tokens_from_chars,
     render_report,
+    _estimated_tokens,
+    _token_source_label,
 )
 
 
@@ -336,6 +338,73 @@ class TestCompare:
 
 
 # ---------------------------------------------------------------------------
+# _token_source_label
+# ---------------------------------------------------------------------------
+
+
+class TestTokenSourceLabel:
+    def test_litellm_source(self) -> None:
+        m = FlowMeasurement(
+            flow="cline_aider",
+            steps=[TokenSnapshot(100, 50, 150, "litellm")],
+        )
+        assert _token_source_label(m) == "litellm (Aider LLM calls)"
+
+    def test_cline_task_history_source(self) -> None:
+        m = FlowMeasurement(
+            flow="cline_only",
+            steps=[TokenSnapshot(100, 50, 150, "cline_task_history")],
+        )
+        assert _token_source_label(m) == "Cline task history"
+
+    def test_mixed_sources(self) -> None:
+        m = FlowMeasurement(
+            flow="cline_aider",
+            steps=[
+                TokenSnapshot(100, 50, 150, "litellm"),
+                TokenSnapshot(200, 100, 300, "cline_task_history"),
+            ],
+        )
+        assert _token_source_label(m) == "litellm (Aider LLM calls)"
+
+    def test_no_steps(self) -> None:
+        m = FlowMeasurement(flow="cline_aider", steps=[])
+        assert _token_source_label(m) == "none (using char estimate)"
+
+
+# ---------------------------------------------------------------------------
+# _estimated_tokens
+# ---------------------------------------------------------------------------
+
+
+class TestEstimatedTokens:
+    def test_real_data_available_returns_none(self) -> None:
+        m = FlowMeasurement(
+            flow="cline_aider",
+            steps=[TokenSnapshot(100, 50, 150, "litellm")],
+            context_size=5000,
+        )
+        assert _estimated_tokens(m) is None
+
+    def test_no_real_data_with_context_size(self) -> None:
+        m = FlowMeasurement(
+            flow="cline_aider",
+            steps=[],
+            context_size=100,
+        )
+        # estimate_tokens_from_chars("100") = 3 // 4 = 0
+        assert _estimated_tokens(m) == 0
+
+    def test_no_real_data_no_context_size(self) -> None:
+        m = FlowMeasurement(
+            flow="cline_aider",
+            steps=[],
+            context_size=0,
+        )
+        assert _estimated_tokens(m) is None
+
+
+# ---------------------------------------------------------------------------
 # render_report
 # ---------------------------------------------------------------------------
 
@@ -383,6 +452,9 @@ class TestRenderReport:
         # Check winkr_change marker field appears
         assert "Used ``winkr change``" in report
         assert "No" in report  # default is False
+
+        # Check token source field appears
+        assert "Token source" in report
 
     def test_different_diffs_verdict(self) -> None:
         flow_a = FlowMeasurement(
