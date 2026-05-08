@@ -14,6 +14,7 @@ from .aider import build_change_command, build_query_command, run_command, valid
 from .commands import run_browser, run_editor
 from .config import MODEL_TIERS
 from .credentials import resolve_api_key
+from .enforcer import check_commits, check_pending_changes
 from .git_safety import ensure_clean_worktree
 from .init_command import handle_init  # Import the new handler
 from .logging_utils import log_prompt
@@ -151,6 +152,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="Enable dual-pane tmux session.",
     )
     tmux.set_defaults(func=handle_tmux)
+
+    # Add 'enforcer' subcommand
+    enforcer = subparsers.add_parser(
+        "enforcer",
+        help="Enforce the winkr mutation policy (pre-commit checks).",
+    )
+    enforcer_sub = enforcer.add_subparsers(dest="enforcer_command", required=True)
+
+    enforcer_check = enforcer_sub.add_parser(
+        "check",
+        help="Check staged changes or a commit range for policy compliance.",
+    )
+    enforcer_check.add_argument(
+        "--range",
+        default=None,
+        help="Git revision range to check (e.g., HEAD~5..HEAD). Default: auto.",
+    )
+    enforcer_check.set_defaults(func=handle_enforcer_check)
+
+    enforcer_install = enforcer_sub.add_parser(
+        "install-hooks",
+        help="Install the pre-commit hook into .git/hooks/.",
+    )
+    enforcer_install.set_defaults(func=handle_enforcer_install_hooks)
 
     tiers = subparsers.add_parser(
         "tiers",
@@ -342,6 +367,35 @@ def handle_tmux(args: argparse.Namespace) -> int:
         if completed.returncode != 0:
             return completed.returncode
     return 0
+
+
+def handle_enforcer_check(args: argparse.Namespace) -> int:
+    """Handle ``winkr enforcer check``."""
+    if args.range:
+        results = check_commits(commit_range=args.range)
+        for r in results:
+            status = "PASS" if r.passed else "WARN"
+            print(f"[{status}] {r.reason}")
+        return 0 if all(r.passed for r in results) else 1
+
+    result = check_pending_changes()
+    if result.passed:
+        print(f"[PASS] {result.reason}")
+        return 0
+    print(f"[WARN] {result.reason}")
+    return 1
+
+
+def handle_enforcer_install_hooks(args: argparse.Namespace) -> int:
+    """Handle ``winkr enforcer install-hooks``."""
+    hook_script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "install_hooks.sh"
+    )
+    if not hook_script.exists():
+        print(f"Error: hook installer not found at {hook_script}", file=sys.stderr)
+        return 1
+    completed = subprocess.run([str(hook_script)], check=False)
+    return completed.returncode
 
 
 def handle_tiers(args: argparse.Namespace) -> int:

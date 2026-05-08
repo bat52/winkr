@@ -1,0 +1,48 @@
+# Implementation Plan
+
+[Overview]
+Update the rules file to enforce token estimation and tracking.
+
+The goal is to update the core multi-agent workflow specification (`clinerules.base.md`) to explicitly mandate token consumption tracking. Agents will estimate token usage prior to each step (using heuristics based on file size and operation complexity), track the actual token consumption as reported by `winkr query` or `winkr change`, and compare them at the end of each workflow. If a significant discrepancy (+/- 25%) occurs, the agent will analyze the underlying cause. If the findings highlight inefficiencies, the agent will consider formulating an actionable improvement to the rules or operations. This promotes continuous optimization of agent context size and cost efficiency.
+
+[Types]
+No new type definitions or structural data changes.
+
+There are no direct code structural changes needed. This is purely an update to the natural language rule set used by the LLM.
+
+[Files]
+Updates to the base rules file.
+
+- Modified: `src/llm_agent_toolkit/rules/clinerules.base.md`
+  - Add instructions under section 4 (Communication & State Protocol) to detail token estimation, tracking format, and comparison logic at the workflow's conclusion.
+  - Add guidelines for analyzing +/- 25% discrepancies and using these insights to propose rule improvements.
+
+[Functions]
+No functions will be modified.
+
+- New functions: None.
+- Modified functions: None.
+- Removed functions: None.
+
+[Classes]
+No classes will be modified.
+
+- New classes: None.
+- Modified classes: None.
+- Removed classes: None.
+
+[Dependencies]
+No dependency modifications are required.
+
+- No new or updated packages.
+
+[Testing]
+Validation of the rules file update.
+
+- Ensure the updated `clinerules.base.md` can still be loaded without errors.
+
+[Implementation Order]
+Sequential update to the rules markdown.
+
+1. Modify `src/llm_agent_toolkit/rules/clinerules.base.md` by appending the new token tracking procedures to Section 4.
+2. Verify changes using `cat` and running `pytest tests/test_rules.py`.

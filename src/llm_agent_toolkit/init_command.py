@@ -186,6 +186,20 @@ def handle_init(args: argparse.Namespace) -> int:
         print(f"Failed to create .clinerules file. Error: {e}")
         return 1
 
+    # 4. Install enforcer pre-commit hooks
+    print("Installing enforcer pre-commit hooks...")
+    hook_installer = Path(__file__).resolve().parents[2] / "scripts" / "install_hooks.sh"
+    if hook_installer.exists():
+        try:
+            subprocess.run([str(hook_installer)], check=True, capture_output=True, text=True)
+            print("Enforcer pre-commit hook installed.")
+        except subprocess.CalledProcessError as e:
+            print(f"Warning: could not install pre-commit hook: {e.stderr.strip()}")
+        except Exception as e:
+            print(f"Warning: could not install pre-commit hook: {e}")
+    else:
+        print(f"Warning: hook installer not found at {hook_installer}")
+
     print("\nWinkr project initialization complete!")
     print("You can now start developing your project.")
     return 0 # Indicate success

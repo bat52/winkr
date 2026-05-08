@@ -41,7 +41,7 @@ def test_build_change_command_includes_files() -> None:
         "--api-key",
         "deepseek=secret",
         "--model",
-        "openrouter/deepseek/deepseek-coder",
+        "openrouter/deepseek/deepseek-chat",
         "--message",
         "refactor",
         "src/foo.py",

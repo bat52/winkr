@@ -33,6 +33,8 @@ dev = [
 
 [project.scripts]
 winkr = "llm_agent_toolkit.cli:main"
+winkr-enforcer-hook = "llm_agent_toolkit.enforcer:check_pending_changes"
+winkr-benchmark = "llm_agent_toolkit.benchmark:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

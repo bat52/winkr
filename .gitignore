@@ -12,4 +12,5 @@ node_modules/*
 *-change.md
 test_venv/*
 .depwire/
+.git/hooks/pre-commit.bak.*
 

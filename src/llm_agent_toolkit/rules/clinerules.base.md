@@ -246,6 +246,7 @@ Project-specific architecture notes should live in a separate project overlay.
 # 6. Core Rules
 # ============================================================
 ## Non-negotiable constraints that apply to all workflows.
+## VIOLATING THESE RULES WILL TRIGGER PRE-COMMIT WARNINGS.
 ## - Never modify files directly.
 ## - Never use built-in change/write tools.
 ## - Never output inline patches or diffs.
@@ -262,6 +263,25 @@ Project-specific architecture notes should live in a separate project overlay.
 ##   proactively reduce the context window by issuing the
 ##   `/smol` command whenever usage approaches 80% of the
 ##   model's limit.
+## 
+## 6a. Enforcement Mechanisms
+## --------------------------
+## A Git pre-commit hook (installed via `winkr enforcer install-hooks`)
+## checks every commit for compliance with the mutation policy.
+## The hook uses `winkr enforcer check` to detect:
+##   - Direct edits to winkr-managed files (.clinerules, implementation_plan.md)
+##   - Commits with non-Aider commit message patterns
+##   - Bulk edits that bypass the atomic change workflow
+## 
+## The pre-commit hook is SOFT ENFORCEMENT: it prints warnings but
+## does NOT block the commit. This allows emergency direct edits while
+## maintaining visibility into policy compliance.
+## 
+## Before every mutation, the Orchestrator MUST run:
+##     winkr enforcer check
+## to verify the working tree is compliant. If the check returns
+## [WARN], the Orchestrator MUST reformulate the change as a
+## `winkr change` invocation before proceeding.
 # ============================================================
 # 7. Instruction Quality Rules
 # ============================================================
@@ -286,8 +306,10 @@ Project-specific architecture notes should live in a separate project overlay.
 ## 4. Should repository understanding be delegated to depwire
 ##    MCP tools first (then `winkr query` for semantic needs)?
 ## 5. Do I need to re-read repository state after execution?
+## 6. Have I run `winkr enforcer check` to verify compliance?
 ##
 ## If any answer is NO: stop and reformulate the action.
+## If check 6 fails: run `winkr enforcer check` and address warnings.
 # ============================================================
 # 9. API Key Resolution
 # ============================================================
@@ -305,3 +327,41 @@ Project-specific architecture notes should live in a separate project overlay.
 ## LOCAL_EDIT    → IMPLEMENT_CHANGE_WORKFLOW → TIER_CODING
 ## COMPLEX_REFACTOR → REFACTOR_WORKFLOW   → TIER_REASONING
 ## DEBUGGING     → DEBUG_WORKFLOW         → TIER_REASONING
+# ============================================================
+# 11. Enforcement Protocol
+# ============================================================
+## Step-by-step instructions for the Orchestrator to self-enforce
+## the mutation policy using the winkr enforcer tooling.
+##
+## 11a. Pre-Mutation Check
+## -----------------------
+## Before writing any code, run:
+##     winkr enforcer check
+## If the output contains [WARN], the working tree has policy
+## violations. DO NOT proceed with mutation. Instead:
+##   1. Identify which files triggered the warning.
+##   2. If the files are winkr-managed (.clinerules, etc.), use
+##      `winkr change` to make the modification instead.
+##   3. Re-run `winkr enforcer check` to confirm [PASS].
+##
+## 11b. Post-Commit Audit
+## ----------------------
+## After a commit, run:
+##     winkr enforcer check --range HEAD~1..HEAD
+## This audits the most recent commit. If it returns [WARN],
+## the commit bypassed the mutation policy. Review and consider
+## reverting/re-doing via `winkr change`.
+##
+## 11c. Bulk Audit
+## ---------------
+## To audit all commits since the last merge-base with main:
+##     winkr enforcer check
+## (without --range, it auto-detects the merge-base)
+##
+## 11d. Hook Installation
+## ----------------------
+## Install the pre-commit hook for automatic soft-enforcement:
+##     winkr enforcer install-hooks
+## This copies scripts/enforcer-hook.sh to .git/hooks/pre-commit.
+## The hook runs `winkr enforcer check` on every commit and prints
+## warnings for detected violations without aborting the commit.

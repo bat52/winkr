@@ -113,7 +113,7 @@ The default model tiers are:
 | Tier | Model |
 | --- | --- |
 | `TIER_REASONING` | `openrouter/google/gemini-2.5-flash` |
-| `TIER_CODING` | `openrouter/deepseek/deepseek-coder` |
+| `TIER_CODING` | `openrouter/deepseek/deepseek-chat` |
 | `TIER_FAST` | `openrouter/google/gemini-2.5-flash` |
 
 You can use aliases or raw model names:
@@ -250,6 +250,92 @@ and:
 #!/usr/bin/env bash
 exec winkr change "$@"
 ```
+## Benchmark
+
+`winkr` includes a token efficiency benchmarking framework that compares the
+Cline+Aider orchestration flow against a Cline-only baseline.
+
+### Usage
+
+```bash
+# Run the benchmark (requires npx, git, and a configured API key)
+winkr-benchmark
+
+# Custom task and iterations
+winkr-benchmark --task "Refactor main.py into utils.py" --iterations 3
+
+# Specify output directory
+winkr-benchmark --output-dir ./my_benchmarks
+```
+
+Or via the shell wrapper:
+
+```bash
+./scripts/benchmark.sh
+```
+
+### How it works
+
+1. **Flow A (Cline + Aider)**: Creates a fixture repo with the full winkr
+   `.clinerules`, so Cline must delegate mutations to Aider via `winkr change`.
+   Token data is captured from both litellm (Aider's stderr) and Cline's stderr.
+
+2. **Flow B (Cline only)**: Creates a fixture repo with a permissive
+   `.clinerules`, allowing Cline to edit files directly. Token data is captured
+   from Cline's stderr only.
+
+3. **Comparison**: The framework computes delta (B − A), percentage difference,
+   checks whether both flows produced the same git diff, and generates a verdict.
+
+### Report output
+
+Reports are saved as Markdown files in the output directory
+(`./benchmark_results/` by default). Each report includes:
+
+- Token counts (prompt, completion, total) for both flows
+- Wall-clock time
+- Number of LLM call steps
+- Delta and percentage comparison
+- Diff equivalence check
+- Verdict on whether the multi-agent overhead pays off
+
+### Example report
+
+```markdown
+# Token Efficiency Benchmark Report
+
+**Task**: Extract the greet() and farewell() functions from main.py into a new file utils.py
+
+## Flow A: Cline + Aider
+- Total tokens: 1,777 (prompt: 0 / completion: 1,777)
+- Wall clock: 300.1 seconds
+- Steps: 1 LLM calls
+- Cost: $0.0242
+- Cache writes: 26,425 / reads: 215,680
+- Context size: 149,628 bytes
+
+## Flow B: Cline only
+- Total tokens: 1,001 (prompt: 0 / completion: 1,001)
+- Wall clock: 336.8 seconds
+- Steps: 1 LLM calls
+- Cost: $0.0068
+- Cache writes: 10,248 / reads: 41,472
+- Context size: 33,994 bytes
+
+## Comparison
+- Delta (B - A): -776 tokens (-43.7%)
+- Same output diff: No
+
+## Diff stats
+\`\`\`
+Flow A (Cline+Aider):
+Flow B (Cline only):  main.py | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
+\`\`\`
+
+**Verdict**: The two flows produced different outputs — direct comparison is not meaningful.
+```
+
 ## Development
 
 Run tests:
