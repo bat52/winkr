@@ -19,6 +19,7 @@ from .git_safety import ensure_clean_worktree
 from .git_setup import setup_git_ssh
 from .init_command import handle_init  # Import the new handler
 from .logging_utils import log_prompt
+from .config_manager import config_path, interactive_configure, load_config
 from .rules import write_rules_file
 
 
@@ -102,7 +103,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Initialize winkr project environment.",
     )
     # No specific arguments for init command yet, but could be added later
-    init.set_defaults(func=handle_init)
+    init.set_defaults(func=handle_winkr_init)
 
     # Add new 'edit' subcommand
     edit = subparsers.add_parser(
@@ -213,6 +214,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Set up SSH key and configure Git remote for frictionless pushes.",
     )
     git_setup.set_defaults(func=handle_git_setup)
+
+    configure = subparsers.add_parser(
+        "configure",
+        help="Interactively create or update .winkr/config.json.",
+    )
+    configure.set_defaults(func=handle_configure)
 
     return parser
 
@@ -479,6 +486,19 @@ def handle_tiers(args: argparse.Namespace) -> int:
 def handle_git_setup(args: argparse.Namespace) -> int:
     """Handle ``winkr git-setup``."""
     return setup_git_ssh()
+
+
+def handle_configure(args: argparse.Namespace) -> int:
+    """Handle ``winkr configure`` — interactively create .winkr/config.json."""
+    cfg = interactive_configure()
+    print(f"\nWinkr configuration written to {config_path()}.")
+    return 0
+
+
+def handle_winkr_init(args: argparse.Namespace) -> int:
+    """Wrapper for ``winkr init`` that loads .winkr/config.json first."""
+    cfg = load_config()
+    return handle_init(args, cfg)
 
 
 def _short_hostname() -> str:

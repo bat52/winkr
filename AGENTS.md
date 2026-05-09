@@ -4,7 +4,7 @@
 
 - **Import package**: `llm_agent_toolkit` (src/llm_agent_toolkit/)
 - **Distributable name**: `winkr`
-- **CLI commands**: `winkr`, `winkr query`, `winkr change`, `winkr-benchmark`
+- **CLI commands**: `winkr`, `winkr query`, `winkr change`, `winkr configure`, `winkr-benchmark`
 - **Entry points** defined in pyproject.toml `[project.scripts]`, wired to `llm_agent_toolkit.cli:main`
 
 ## Development commands
@@ -22,8 +22,9 @@ python3 -m compileall src tests
 
 ## Architecture
 
-- `cli.py` — argparse-based CLI with subcommands (query, change, write-rules, init, edit, browse, start, tmux, enforcer, tiers, git-setup)
+- `cli.py` — argparse-based CLI with subcommands (query, change, write-rules, init, edit, browse, start, tmux, enforcer, tiers, git-setup, configure)
 - `config.py` — `MODEL_TIERS` dict mapping tier aliases (`TIER_REASONING`, `TIER_CODING`, `TIER_FAST`) to provider/model strings
+- `config_manager.py` — `.winkr/config.json` schema, load/save, interactive `winkr configure` prompts
 - `credentials.py` — API key resolution chain: explicit arg → `OPENROUTER_API_KEY` → `AIDER_API_KEY` (legacy DeepSeek) → `~/.cline/data/secrets.json`
 - `aider.py` — builds Aider CLI commands (query vs change), runs via subprocess
 - `git_safety.py` — blocks `winkr change` on dirty worktree unless `--allow-dirty`
@@ -51,7 +52,7 @@ python3 -m compileall src tests
 
 ## Testing notes
 
-- 77 collected test cases across 6 modules
+- 116 collected test cases across 8 modules
 - Tests mock `subprocess.run`, `Path`, and other external calls aggressively
 - The `tests/` directory mirrors the module structure but flat (no nested packages)
 - Run a single test file: `python3 -m pytest tests/test_cli.py`

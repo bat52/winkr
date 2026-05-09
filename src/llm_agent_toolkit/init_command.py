@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import subprocess
 import sys
@@ -9,8 +11,7 @@ import shutil
 # Import the write_rules_file function from the rules module
 from .rules import write_rules_file
 
-# Placeholder for potential future configuration loading
-# from .config import Config
+from .config_manager import WinkrConfig, load_config
 
 # Placeholder for logging utilities
 # from .logging_utils import setup_logger
@@ -122,12 +123,22 @@ def create_clinerules_file():
         print(f"Error creating .clinerules file: {e}", file=sys.stderr)
         raise
 
-def handle_init(args: argparse.Namespace) -> int:
+def handle_init(args: argparse.Namespace, config: WinkrConfig | None = None) -> int:
     """
     Handles the 'winkr init' command.
     Checks for and installs dependencies, initializes Git, and creates .clinerules.
     """
     print("Initializing winkr project environment...")
+
+    # Load project config if available
+    if config is None:
+        config = load_config()
+    if config is not None:
+        print(f"  Loaded configuration from .winkr/config.json")
+        print(f"  Orchestrator: {config.orchestrator_command_name}")
+        print(f"  Tiers: REASONING={config.tier_reasoning}, CODING={config.tier_coding}, FAST={config.tier_fast}")
+    else:
+        print("  No .winkr/config.json found — using defaults.")
 
     # 1. Dependency Checks and Installations
     # Handle Aider separately due to its two-step installation process.

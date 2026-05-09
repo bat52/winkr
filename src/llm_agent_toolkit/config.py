@@ -5,7 +5,7 @@ from __future__ import annotations
 MODEL_TIERS: dict[str, str] = {
     "TIER_REASONING": "openrouter/google/gemini-2.5-flash",
     "TIER_CODING": "openrouter/deepseek/deepseek-chat",
-    "TIER_FAST": "openrouter/google/gemini-2.5-flash",
+    "TIER_FAST": "openrouter/deepseek/deepseek-chat",
     "TIER_ARCHITECT": "openrouter/google/gemini-2.5-flash",
 }
 

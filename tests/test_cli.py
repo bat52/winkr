@@ -9,7 +9,7 @@ import pytest
 
 # Import the modules to test
 try:
-    from llm_agent_toolkit.cli import build_parser, handle_query, handle_change, handle_write_rules, handle_start, handle_tmux, handle_tiers
+    from llm_agent_toolkit.cli import build_parser, handle_query, handle_change, handle_write_rules, handle_start, handle_tmux, handle_tiers, handle_configure, handle_winkr_init
     from llm_agent_toolkit.init_command import handle_init, install_pip_package
 except ImportError:
     pytest.fail("Could not import CLI modules. Ensure PYTHONPATH includes 'src'.")
@@ -261,3 +261,53 @@ def test_build_parser_architect_with_flags():
     assert args.no_log is True
     assert args.model == "gpt-4o"
     assert args.prompt == "plan this"
+
+
+# --- Tests for configure subcommand ---
+
+def test_build_parser_has_configure_subcommand():
+    """Verify the configure subcommand is registered in the parser."""
+    parser = build_parser()
+    args = parser.parse_args(["configure"])
+    assert args.command == "configure"
+
+
+@patch("llm_agent_toolkit.cli.interactive_configure")
+def test_handle_configure(mock_interactive_configure):
+    """Verify handle_configure calls interactive_configure and prints success."""
+    mock_args = MagicMock(spec=argparse.Namespace)
+    mock_config = MagicMock()
+    mock_interactive_configure.return_value = mock_config
+
+    with patch("builtins.print"):
+        return_code = handle_configure(mock_args)
+
+    assert return_code == 0
+    mock_interactive_configure.assert_called_once()
+
+
+@patch("llm_agent_toolkit.cli.load_config")
+@patch("llm_agent_toolkit.cli.handle_init")
+def test_handle_winkr_init_loads_config(mock_handle_init, mock_load_config):
+    """Verify handle_winkr_init loads config and passes it to handle_init."""
+    mock_args = MagicMock(spec=argparse.Namespace)
+    mock_config = MagicMock()
+    mock_load_config.return_value = mock_config
+
+    handle_winkr_init(mock_args)
+
+    mock_load_config.assert_called_once()
+    mock_handle_init.assert_called_once_with(mock_args, mock_config)
+
+
+@patch("llm_agent_toolkit.cli.load_config")
+@patch("llm_agent_toolkit.cli.handle_init")
+def test_handle_winkr_init_no_config(mock_handle_init, mock_load_config):
+    """Verify handle_winkr_init passes None when no config file exists."""
+    mock_args = MagicMock(spec=argparse.Namespace)
+    mock_load_config.return_value = None
+
+    handle_winkr_init(mock_args)
+
+    mock_load_config.assert_called_once()
+    mock_handle_init.assert_called_once_with(mock_args, None)

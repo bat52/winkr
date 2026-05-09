@@ -15,3 +15,5 @@ test_venv/*
 .git/hooks/pre-commit.bak.*
 
 scripts/aider_cfg.sh
+*.pyc
+src/llm_agent_toolkit/__pycache__/*
