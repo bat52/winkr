@@ -1,226 +1,182 @@
 # Implementation Plan
 
-Create a token efficiency benchmarking framework that measures and compares token consumption between winkr's Cline+Aider orchestration flow and a Cline-only flow, so the team can make data-driven decisions about workflow architecture.
+Add an Architect Agent role to the winkr rules system, backed by `aider --architect`, along with a `winkr architect` CLI subcommand that wraps the aider architect feature and pipeline orchestration that integrates architecture planning into the existing workflow blocks.
 
-Winkr's multi-agent architecture splits work across model tiers: Cline (Orchestrator) handles planning/reasoning, and Aider (Mutation Agent) handles code changes via `winkr change`. This introduces overhead — two LLM calls per mutation cycle instead of one — but may save tokens overall by keeping each agent's context window focused. Currently there is no instrumentation to verify this hypothesis. The benchmark fills that gap by running identical code-change tasks through both flows, capturing token usage from litellm (for Aider) and Cline's CLI stderr (for Cline), optionally validating against OpenRouter's API metadata, and generating a comparison report. The benchmark is self-contained: it creates a temporary git repo, runs both flows against a standardized refactoring task, and tears down cleanly.
+The architect agent role enables a two-phase coding workflow: first an architect model generates a plan (using `--architect`), then an editor model implements it. This replaces or augments the current flat PLAN_CHANGE→IMPLEMENT_CHANGE workflow for complex tasks. The implementation adds: (1) a new `winkr architect` CLI subcommand wrapping `aider --architect`, (2) an Architect Agent role definition in `.clinerules` and `clinerules.base.md`, (3) a new ARCHITECT_PLAN workflow block in the rules, (4) updates to the existing PLAN_CHANGE and IMPLEMENT_CHANGE workflows to delegate architecture steps to the architect agent, (5) token tracking extensions for architect/coding agent token reporting, and (6) updates to the task lifecycle documentation.
 
 [Types]
-Two new dataclasses for benchmark results and one new dataclass for individual flow measurements.
+Two new supporting types added to `aider.py`.
 
-New dataclass `TokenSnapshot`:
-- `prompt_tokens: int` — number of tokens in the prompt (input)
-- `completion_tokens: int` — number of tokens in the completion (output)
-- `total_tokens: int` — sum of prompt and completion
-- `source: str` — where this came from ("litellm", "cline_stderr", "openrouter_api", "chars_estimate")
-- `model: str | None` — model name if known (e.g., "openrouter/google/gemini-2.5-flash")
+New dataclass `AiderCommand` already exists (frozen). Adding a new function `build_architect_command()` that returns an `AiderCommand` with `--architect` flag.
 
-New dataclass `FlowMeasurement`:
-- `flow: str` — "cline_aider" or "cline_only"
-- `steps: list[TokenSnapshot]` — sequential snapshots captured during execution
-- `total_prompt_tokens: int` — aggregated across all steps
-- `total_completion_tokens: int` — aggregated across all steps
-- `total_tokens: int` — aggregated across all steps
-- `wall_clock_seconds: float` — elapsed real time
-- `git_diff_stat: str` — diff stat of the final commit (lines changed, files touched)
-
-New dataclass `BenchmarkResult`:
-- `task_description: str` — description of the benchmark task
-- `cline_aider: FlowMeasurement` — results from Flow A
-- `cline_only: FlowMeasurement` — results from Flow B
-- `delta_prompt_tokens: int` — cline_only - cline_aider (positive means Cline-only used more)
-- `delta_completion_tokens: int` — same for completion
-- `delta_total_tokens: int` — same for total
-- `delta_percent: float` — (cline_only - cline_aider) / cline_aider * 100
-- `same_diff: bool` — whether both flows produced the same git diff
-
-Also new enum `FlowType`:
-- `CLINE_AIDER` — Cline orchestrates, Aider mutates
-- `CLINE_ONLY` — Cline does everything
+New enum variant or function: No new enums needed. The `FlowType` concept is in `.clinerules` as workflow names, not in Python code. No Python-level enums needed.
 
 [Files]
-Three new files and modifications to one configuration file; no deletions.
+Seven files modified, two new files created.
 
-Detailed breakdown:
-- New files:
-    - `src/llm_agent_toolkit/benchmark.py` (~250 lines): Core benchmarking module containing `TokenSnapshot`, `FlowMeasurement`, `BenchmarkResult`, `FlowType`, plus:
-      - `capture_litellm_tokens(stderr: str) -> list[TokenSnapshot]` — parses litellm "Tokens: X/Y" output from Aider stderr
-      - `capture_cline_tokens(stderr: str) -> list[TokenSnapshot]` — parses Cline's "[model] tokens: X input, Y output" lines from stderr
-      - `run_flow_a(bench_dir: Path, task: str) -> FlowMeasurement` — sets up repo with winkr .clinerules, runs Cline with task, captures all stderr, parses token data
-      - `run_flow_b(bench_dir: Path, task: str) -> FlowMeasurement` — sets up repo without .clinerules (or permissive rules), runs Cline with same task, captures stderr
-      - `compare(flow_a: FlowMeasurement, flow_b: FlowMeasurement) -> BenchmarkResult` — computes deltas and validates diff equivalence
-      - `render_report(result: BenchmarkResult) -> str` — generates a Markdown comparison report
-      - The module also contains a `main()` entry point that accepts `--task`, `--iterations`, `--output-dir`
+New files:
+- `tests/test_architect.py` (~80 lines): Unit tests for `build_architect_command()`, CLI `handle_architect()` logic, and parser construction for the `architect` subcommand.
 
-    - `scripts/benchmark.sh` (~100 lines): Shell wrapper that:
-      1. Creates a temporary directory
-      2. Initializes a git repo with a known starting state (a small test Python file with a class that needs refactoring)
-      3. Creates a fixture `.clinerules` for Flow A (the current winkr rules) and a permissive `.clinerules` for Flow B (allows direct edits)
-      4. Calls `python -m llm_agent_toolkit.benchmark --task "$TASK" --output-dir "$OUTPUT"`
-      5. Prints the report and cleans up temporary files
-      6. Accepts `--iterations N` to run multiple times for statistical significance
+Existing files to be modified:
+1. `src/llm_agent_toolkit/aider.py` (~+15 lines): Add `build_architect_command()` function.
+2. `src/llm_agent_toolkit/cli.py` (~+40 lines): Add `winkr architect` subcommand parser and `handle_architect()` handler.
+3. `src/llm_agent_toolkit/rules/clinerules.base.md` (~+45 lines): Add Architect Agent role definition, add ARCHITECT_PLAN workflow block, update PLAN_CHANGE and IMPLEMENT_CHANGE workflows, update intent classification, update architecture diagram.
+4. `src/llm_agent_toolkit/config.py` (~+2 lines): Add optional `TIER_ARCHITECT` model tier mapping.
+5. `.clinerules` (generated from clinerules.base.md, ~+45 lines): Same changes as clinerules.base.md (the `.clinerules` is generated, not committed).
+6. `tests/test_cli.py` (~+20 lines): Add test for `winkr architect` subcommand in `test_build_parser`.
+7. `tests/test_aider.py` (~+20 lines): Add tests for `build_architect_command()`.
 
-    - `tests/test_benchmark.py` (~120 lines): Unit tests for token parsers and report rendering:
-      - `test_capture_litellm_tokens_typical()` — parses a realistic litellm stderr string
-      - `test_capture_litellm_tokens_empty()` — handles empty stderr
-      - `test_capture_cline_tokens_typical()` — parses Cline's token log lines
-      - `test_capture_cline_tokens_empty()` — handles empty stderr
-      - `test_compare_same_diff()` — verifies correct delta computation when diffs match
-      - `test_compare_different_diff()` — verifies `same_diff=False` is flagged
-
-- Existing files to be modified:
-    - `pyproject.toml` (+~1 line): Add `[project.scripts]` entry for `winkr-benchmark = "llm_agent_toolkit.benchmark:main"` (optional, for convenience)
-    - `README.md` (+~25 lines): Add a new "Benchmark" section after the existing "Development" section documenting the benchmark feature, usage instructions, and a placeholder for results that will be filled in after running the benchmark.
+No deletions. No files moved.
 
 [Functions]
-Primarily new functions in a new module; no modifications to existing functions.
+Primarily new functions in existing modules; no removals.
 
-Detailed breakdown:
-- New functions in `src/llm_agent_toolkit/benchmark.py`:
-    - `capture_litellm_tokens(stderr: str) -> list[TokenSnapshot]` — Uses regex to find litellm's token output pattern. litellm typically prints: `Model: <name> Cost: $<cost> Tokens: <prompt>/<completion>` on stderr. Extracts prompt_tokens, completion_tokens, total_tokens. Returns a list (one per LLM call).
-    
-    - `capture_cline_tokens(stderr: str) -> list[TokenSnapshot]` — Uses regex to find Cline's token output pattern. Cline CLI prints something like: `[model] tokens: <prompt> input, <completion> output` on stderr. Returns a list of snapshots.
-    
-    - `estimate_tokens_from_chars(text: str) -> int` — Returns `len(text) // 4` as a rough estimate. Used as a fallback when structured data is unavailable (e.g., for Cline's internal planning tokens that aren't explicitly logged).
-    
-    - `create_fixture_repo(path: Path, flow: FlowType) -> Path` — Creates a temporary git repo with a known starting state:
-      - A small Python file with a class that needs refactoring (e.g., a large function that should be extracted into a module)
-      - For `CLINE_AIDER`: writes the current `.clinerules` from winkr
-      - For `CLINE_ONLY`: writes a permissive `.clinerules` that allows direct edits (just the agent role definitions without the mutation policy)
-      - Initial empty commit
-      - Returns the repo path
-    
-    - `run_cline_with_task(repo_path: Path, task: str) -> tuple[int, str, str]` — Runs Cline CLI in non-interactive mode (`npx cline --message "$task"`) in the repo directory. Captures stdout and stderr separately. Returns (exit_code, stdout, stderr).
-    
-    - `run_flow_a(repo_path: Path, task: str) -> FlowMeasurement` — 
-      1. Calls `create_fixture_repo(repo_path, CLINE_AIDER)`
-      2. Calls `run_cline_with_task(repo_path, task)` 
-      3. Parses all stderr for litellm token data (Aider's output) AND Cline's own token data
-      4. Runs `git diff --stat HEAD` to capture the change
-      5. Returns `FlowMeasurement` with all captured token snapshots and timing
-    
-    - `run_flow_b(repo_path: Path, task: str) -> FlowMeasurement` —
-      1. Calls `create_fixture_repo(repo_path, CLINE_ONLY)`
-      2. Calls `run_cline_with_task(repo_path, task)`
-      3. Parses stderr for Cline's token data only
-      4. Runs `git diff --stat HEAD`
-      5. Returns `FlowMeasurement`
-    
-    - `compare(flow_a: FlowMeasurement, flow_b: FlowMeasurement) -> BenchmarkResult` —
-      - Computes delta values (Flow B - Flow A)
-      - Compares git diff stats to determine if both flows produced equivalent changes
-      - Returns `BenchmarkResult` with all comparison data
-    
-    - `render_report(result: BenchmarkResult) -> str` — Generates a formatted Markdown report:
-      ```markdown
-      # Token Efficiency Benchmark Report
-      
-      **Task**: <task description>
-      
-      ## Flow A: Cline + Aider
-      - Total tokens: XX,XXX (prompt: XX,XXX / completion: XX,XXX)
-      - Wall clock: XX.X seconds
-      - Steps: X LLM calls
-      
-      ## Flow B: Cline only
-      - Total tokens: XX,XXX (prompt: XX,XXX / completion: XX,XXX)
-      - Wall clock: XX.X seconds
-      - Steps: X LLM calls
-      
-      ## Comparison
-      - Delta (B - A): +X,XXX tokens (+XX.X%)
-      - Same output diff: Yes/No
-      
-      ## Verdict
-      <conclusion based on data>
-      ```
-    
-    - `main()` — CLI entry point. Parses `--task`, `--iterations` (default 1), `--output-dir` (default ./benchmark_results). Runs the benchmark loop, aggregates results, and writes the report.
+New functions:
+- `build_architect_command(prompt: str, api_key: ResolvedApiKey, model: str | None = None, files: Sequence[str] = (), extra_args: Sequence[str] = ()) -> AiderCommand` in `src/llm_agent_toolkit/aider.py`:
+  Builds an aider command with `--architect` flag. Uses TIER_REASONING model as default (for the architect), and passes `--editor-model` mapped to TIER_CODING. Signature mirrors `build_change_command()` but adds `--architect` and `--editor-model` to the argv.
 
-- New functions in `scripts/benchmark.sh`:
-    - (Shell script) Sets up environment, validates dependencies (cline, winkr, aider), creates temp workspace, calls the Python benchmark module and handles output.
+- `handle_architect(args: argparse.Namespace) -> int` in `src/llm_agent_toolkit/cli.py`:
+  Handles the `winkr architect` subcommand. Validates prompt, resolves API key, builds architect command via `build_architect_command()`, optionally logs, optionally prints command, then runs via `run_command()`. Returns 0 on success.
+
+Modified functions:
+- `build_parser()` in `src/llm_agent_toolkit/cli.py` (~+15 lines): Add `architect` subparser with `add_common_aider_args()`, `prompt`, `files`, `--allow-dirty`, and a `--model` argument that defaults to `TIER_REASONING` (unlike `change` which defaults to `TIER_CODING`).
 
 [Classes]
-No new classes; two new dataclasses and one enum.
+No new classes. The `AiderCommand` frozen dataclass in `aider.py` is reused as-is.
 
-Detailed breakdown:
-- `TokenSnapshot` (dataclass) in `src/llm_agent_toolkit/benchmark.py`:
-  Fields: `prompt_tokens: int`, `completion_tokens: int`, `total_tokens: int`, `source: str`, `model: str | None`
+[Architect Agent Role — .clinerules additions]
+The following sections need to be added to `clinerules.base.md`:
 
-- `FlowMeasurement` (dataclass) in `src/llm_agent_toolkit/benchmark.py`:
-  Fields: `flow: str`, `steps: list[TokenSnapshot]`, `total_prompt_tokens: int` (computed), `total_completion_tokens: int` (computed), `total_tokens: int` (computed), `wall_clock_seconds: float`, `git_diff_stat: str`
+1. **Architecture diagram update**: Add Architect Agent branch:
+   ```
+   ##   Orchestrator (Cline)
+   ##     ├── Planner Agent        (TIER_REASONING)
+   ##     ├── Architect Agent      (TIER_REASONING → aider --architect)
+   ##     ├── Repo Intelligence    (depwire MCP)
+   ##     ├── Reasoning Agent      (TIER_REASONING)
+   ##     ├── Mutation Agent       (Aider + TIER_CODING)
+   ##     └── Fast Query Agent     (TIER_FAST)
+   ```
 
-- `BenchmarkResult` (dataclass) in `src/llm_agent_toolkit/benchmark.py`:
-  Fields: `task_description: str`, `cline_aider: FlowMeasurement`, `cline_only: FlowMeasurement`, `delta_prompt_tokens: int` (computed), `delta_completion_tokens: int` (computed), `delta_total_tokens: int` (computed), `delta_percent: float` (computed), `same_diff: bool`
+2. **New Agent Role section** in section 1:
+   ```
+   ## --- Architect Agent ---
+   ## Responsibility: Generate architecture plans for complex changes using
+   ##   aider's architect edit format.
+   ## Allowed: `winkr architect` invocation.
+   ## NOT allowed: code mutation, file changes, tool execution.
+   ## Input: Architecture plan markdown file path + scope description.
+   ## Output: Git commit with architecture plan document.
+   ```
 
-- `FlowType` (enum.StrEnum) in `src/llm_agent_toolkit/benchmark.py`:
-  Values: `CLINE_AIDER = "cline_aider"`, `CLINE_ONLY = "cline_only"`
+3. **New model tier config**: `TIER_ARCHITECT` in config.py mapped to `openrouter/google/gemini-2.5-flash` (same as TIER_REASONING by default, but independently configurable).
+
+4. **New ARCHITECT_PLAN workflow block** in section 3:
+   ```
+   ## --- ARCHITECT_PLAN_WORKFLOW ---
+   ## Purpose: Generate a detailed architecture plan before implementation.
+   ## Trigger: Complex task requiring architecture approval before coding.
+   ## Steps:
+   ##   1. Orchestrator classifies intent → ARCHITECT_PLAN
+   ##   2. Orchestrator creates architecture plan markdown file at
+   ##      .winkr/task<no>_step<stepno>_architecture_plan.md
+   ##   3. Orchestrator dispatches Architect Agent:
+   ##      winkr architect --file .winkr/task<no>_step<stepno>_architecture_plan.md
+   ##      --model TIER_ARCHITECT
+   ##   4. Orchestrator evaluates architect output (committed plan doc)
+   ##   5. Orchestrator compares actual token usage vs estimate
+   ##   6. If delta > 25%, assess causes and propose rule improvements
+   ##   7. Orchestrator may refine with more architect steps or proceed
+   ##      to coding
+   ##   8. For coding steps, dispatches Mutation Agent
+   ##   Output: Architecture plan committed, then implemented code.
+   ```
+
+5. **Update PLAN_CHANGE_WORKFLOW** to reference architect for complex tasks:
+   ```
+   ##   3. Orchestrator dispatches Repo Intelligence Agent for
+   ##      impact analysis (impact_analysis, get_dependents)
+   ##   3b. If complexity is assessed as high, Orchestrator dispatches
+   ##       Planner Agent to determine architect vs coding split
+   ##   4. Orchestrator dispatches Reasoning Agent (TIER_REASONING) or
+   ##      Architect Agent (winkr architect) to formulate strategy
+   ```
+
+6. **Update IMPLEMENT_CHANGE_WORKFLOW**:
+   ```
+   ##   2. Orchestrator selects next atomic change from plan
+   ##   2b. If step requires architect oversight, Orchestrator dispatches
+   ##       Architect Agent first, then Mutation Agent for implementation
+   ```
+
+7. **Update Intent Classification** in section 10:
+   ```
+   ## ARCHITECT_PLAN → ARCHITECT_PLAN_WORKFLOW → TIER_ARCHITECT
+   ```
+
+8. **Update section 2 (Model Tiers)** to add TIER_ARCHITECT.
 
 [Dependencies]
-No new external Python packages. Uses only standard library: `re`, `subprocess`, `shutil`, `tempfile`, `time`, `dataclasses`, `enum`, `pathlib`, `textwrap`, `json`, `argparse`, `sys`.
-
-The benchmark shell scripts rely on standard POSIX tools: `git`, `npx`, `winkr`, `python3`. These should already be present in a winkr development environment.
+No new external Python packages. Uses only existing dependencies: `aider` (must have `--architect` flag, already verified), `subprocess`, `argparse`, etc.
 
 Testing dependencies: `pytest` (already in dev dependencies).
 
 [Testing]
-One new test file for the token parsers and comparison logic; existing tests must pass unchanged.
+Existing tests must pass unchanged. New tests for architect command and CLI handler.
 
-- New file `tests/test_benchmark.py`:
-  - `test_capture_litellm_tokens_typical()` — Input: a realistic litellm stderr string like:
-    ```
-    Model: openrouter/google/gemini-2.5-flash Cost: $0.00 Tokens: 450/220
-    ```
-    Verifies: `TokenSnapshot(prompt_tokens=450, completion_tokens=220, total_tokens=670, source="litellm", model="openrouter/google/gemini-2.5-flash")`.
-  
-  - `test_capture_litellm_tokens_multiple_calls()` — Multiple LLM calls in one stderr string; verifies multiple snapshots are returned.
-  
-  - `test_capture_litellm_tokens_empty()` — Empty stderr returns empty list.
-  
-  - `test_capture_cline_tokens_typical()` — Input: realistic Cline stderr lines with token info:
-    ```
-    [model] tokens: 1250 input, 340 output
-    ```
-    Verifies parsing is correct.
-  
-  - `test_capture_cline_tokens_empty()` — Empty stderr returns empty list.
-  
-  - `test_compare_identical_diffs()` — Two FlowMeasurements with same diff stat; verifies `same_diff=True` and correct delta computation.
-  
-  - `test_compare_different_diffs()` — Two FlowMeasurements with different diff stats; verifies `same_diff=False`.
-  
-  - `test_render_report_basic()` — Smoke test: renders a BenchmarkResult and verifies key sections are present.
+- New file `tests/test_architect.py`:
+  - `test_build_architect_command_includes_architect_flag()` — Verifies `--architect` appears in argv.
+  - `test_build_architect_command_default_model()` — Verifies default model resolves to TIER_REASONING.
+  - `test_build_architect_command_editor_model()` — Verifies `--editor-model` is set to TIER_CODING.
+  - `test_build_architect_command_includes_files()` — Verifies files are appended.
+  - `test_handle_architect()` — Mocked test that verifies `build_architect_command` and `run_command` are called.
+
+- Additions to `tests/test_aider.py`:
+  - `test_build_architect_command_vs_change()` — Quick check that architect command differs from change command.
+
+- Additions to `tests/test_cli.py`:
+  - In `test_build_parser`: verify `architect` subcommand is present.
+  - New `test_handle_architect` function (if not placed in test_architect.py).
 
 [Implementation Order]
-All changes are additive; implementation order prioritizes token parsers (most testable) first, then flow runners, then the orchestration script.
+All changes are additive or additive to rule docs. Implementation order prioritizes the Python code (most testable), then the rules, then final integration.
 
-1. Create `src/llm_agent_toolkit/benchmark.py` — implement `TokenSnapshot`, `FlowMeasurement`, `BenchmarkResult`, `FlowType`, `capture_litellm_tokens()`, `capture_cline_tokens()`, `estimate_tokens_from_chars()`, and `render_report()`. These are pure functions with no external dependencies and are the most testable in isolation.
+1. **Add `build_architect_command()` to `aider.py`** (~+15 lines). This is the core Python change. Add the function following the existing pattern of `build_change_command()` but with `--architect` flag and `--editor-model` defaulting to TIER_CODING. Model default: `TIER_REASONING` (architect uses the strong model).
 
-2. Create `tests/test_benchmark.py` — write unit tests for the pure parsing and rendering functions from step 1. Run tests to verify correctness.
+2. **Add `TIER_ARCHITECT` to `config.py`** (~+2 lines). Add `"TIER_ARCHITECT": "openrouter/google/gemini-2.5-flash"` to `MODEL_TIERS` dict. This is the same model as TIER_REASONING by default but independently configurable.
 
-3. Extend `src/llm_agent_toolkit/benchmark.py` — implement `create_fixture_repo()`, `run_cline_with_task()`, `run_flow_a()`, `run_flow_b()`, and `compare()`. These involve subprocess and file system operations.
+3. **Add `winkr architect` subcommand to `cli.py`** (~+40 lines). Add subparser with `add_common_aider_args()`, `prompt` (positional), `files` (optional nargs=*), `--allow-dirty`, and a `--model` defaulting to `TIER_REASONING`. Add `handle_architect()` that resolves API key, builds architect command, runs it.
 
-4. Add unit tests in `tests/test_benchmark.py` for `compare()` logic (which is deterministic). The subprocess-heavy functions (`run_flow_a`, `run_flow_b`, `create_fixture_repo`) are tested implicitly via integration runs.
+4. **Create `tests/test_architect.py`** (~80 lines). Test `build_architect_command()` with multiple cases and `handle_architect()` with mocks. Run tests to verify.
 
-5. Update `pyproject.toml` — add optional `winkr-benchmark` script entry point.
+5. **Add architect tests to `tests/test_aider.py`** (~+20 lines). Quick validation that architect command differs structurally from change command.
 
-6. Create `scripts/benchmark.sh` — the shell orchestration wrapper. Test manually by running the benchmark against a small task.
+6. **Update `tests/test_cli.py`** (~+20 lines). Add parser test for architect subcommand existence.
 
-7. Run a manual benchmark on a real task (e.g., "Extract the helper functions from enforcer.py into a new module enforcer_utils.py") to validate that both flows complete and token data is captured. Tweak regex patterns as needed for real-world stderr formats.
+7. **Update `clinerules.base.md`** (~+45 lines). Add Architect Agent role, ARCHITECT_PLAN_WORKFLOW, update intent classification, update architecture diagram, update model tiers. This is the rules documentation that the orchestration layer reads.
+
+8. **Regenerate `.clinerules`** by running `winkr write-rules --force .clinerules`. Verify the output contains the new architect sections.
+
+9. **Run all tests** to ensure nothing is broken: `python3 -m pytest`.
 
 Token cost estimates per step:
-1. Create benchmark.py core (pure functions) ~250 lines → ~6,000 tokens
-2. Create test_benchmark.py ~120 lines → ~3,500 tokens  
-3. Extend benchmark.py (flow runners) +~150 lines → ~5,000 tokens
-4. Extend tests +~40 lines → ~1,500 tokens
-5. Update pyproject.toml ~5 lines → ~500 tokens
-6. Create benchmark.sh ~100 lines → ~2,000 tokens
-7. Manual validation run → ~1,000 tokens (test execution)
+1. `build_architect_command()` in aider.py (+15 lines) → ~500 tokens
+2. `TIER_ARCHITECT` in config.py (+2 lines) → ~100 tokens
+3. CLI subcommand + handler in cli.py (+40 lines) → ~1,200 tokens
+4. `tests/test_architect.py` (~80 lines) → ~2,500 tokens
+5. Additional tests in test_aider.py (+20 lines) → ~800 tokens
+6. Parser test in test_cli.py (+20 lines) → ~600 tokens
+7. clinerules.base.md updates (+45 lines) → ~1,500 tokens
+8. Regenerate .clinerules + verify → ~100 tokens
+9. Run all tests → ~200 tokens
 
-**Total estimated: ~19,500 tokens**
-(Variance: ±30% depending on iteration for stderr format adaptation.)
+**Total estimated: ~7,500 tokens**
+(Variance: ±20% depending on iteration for test adjustments.)
 
 [Verification]
-The benchmark is considered working when:
-- `scripts/benchmark.sh --task "extract the greet() function from main.py into utils.py"` completes both flows successfully
-- Output contains a Markdown report with token counts for both flows and a delta comparison
-- Both flows produce a git commit with equivalent diff output (same files changed, same logical transformation)
+The architect agent is considered working when:
+- `winkr architect "draft a plan for refactoring enforcer.py"` builds a command with `--architect` flag and runs successfully.
+- `aider --architect` (invoked via winkr) produces an architecture plan as a git commit.
+- All 77+ existing tests pass plus new architect tests.
+- `clinerules.base.md` contains the Architect Agent role definition and ARCHITECT_PLAN_WORKFLOW.
+- The architecture diagram in `.clinerules` shows the Architect Agent branch.
