@@ -38,6 +38,8 @@ def build_query_command(
     selected_model = resolve_model(model or DEFAULT_QUERY_MODEL)
     argv = [
         "aider",
+        "--cache-prompt",
+        "--no-stream",
         "--api-key",
         api_key.for_aider(),
         "--model",
@@ -61,6 +63,8 @@ def build_change_command(
     selected_model = resolve_model(model or DEFAULT_CHANGE_MODEL)
     argv = [
         "aider",
+        "--cache-prompt",
+        "--no-stream",
         "--api-key",
         api_key.for_aider(),
         "--model",
@@ -90,6 +94,8 @@ def build_architect_command(
     editor_model = resolve_model("TIER_CODING")
     argv = [
         "aider",
+        "--cache-prompt",
+        "--no-stream",
         "--api-key",
         api_key.for_aider(),
         "--model",
