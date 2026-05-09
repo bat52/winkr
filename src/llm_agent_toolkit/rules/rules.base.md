@@ -1,21 +1,23 @@
-# winkr reusable Cline rules
+# ⛔ CRITICAL: You MUST use `winkr change` for ALL code changes. NEVER use write_to_file or replace_in_file tools.
+# ⛔ CRITICAL: Run `winkr enforcer block` before ANY mutation. If it exits non-zero, STOP and reformulate.
+# ⛔ CRITICAL: All repository mutations MUST go through Aider via `winkr change`.
+
+# winkr reusable orchestration rules
 
 These rules describe a reusable multi-agent workflow layer.
 
 Project-specific architecture notes should live in a separate project overlay.
 
 # ============================================================
-# Multi-Agent Workflow Specification
+# Architecture
 # ============================================================
-## This file defines a modular orchestration layer for Cline.
-## Cline acts as the Orchestrator, delegating specialized work
+## The Orchestrator (Cline, Kilocode, or Claude) delegates specialized work
 ## to Agent Roles via abstract Model Tiers and reusable Workflow
 ## Blocks.
 
-## Architecture:
-
-##   Orchestrator (Cline)
+##   Orchestrator (Cline / Kilocode / Claude)
 ##     ├── Planner Agent        (TIER_REASONING)
+##     ├── Architect Agent      (TIER_REASONING → aider --architect)
 ##     ├── Repo Intelligence    (depwire MCP)
 ##     ├── Reasoning Agent      (TIER_REASONING)
 ##     ├── Mutation Agent       (Aider + TIER_CODING)
@@ -27,7 +29,7 @@ Project-specific architecture notes should live in a separate project overlay.
 ## Each agent role has a defined scope, allowed tools, and
 ## explicit prohibitions.
 
-## --- Orchestrator (Cline) ---
+## --- Orchestrator (Cline / Kilocode / Claude) ---
 ## Responsibility: High-level task management, workflow selection,
 ##   tool execution, state tracking, agent dispatch.
 ## Allowed: shell commands, targeted file reads, git, test/build
@@ -78,6 +80,14 @@ Project-specific architecture notes should live in a separate project overlay.
 ## Input: Explicit, scoped, atomic instruction + target files.
 ## Output: Git commit with changes.
 
+## --- Architect Agent ---
+## Responsibility: Generate architecture plans for complex changes using
+##   aider's architect edit format (``--architect`` flag).
+## Allowed: `winkr architect` invocation.
+## NOT allowed: code mutation, file changes, tool execution.
+## Input: Architecture plan markdown file path + scope description.
+## Output: Git commit with architecture plan document.
+
 ## --- Fast Query Agent ---
 ## Responsibility: Lightweight semantic checks, quick lookups,
 ##   simple code comprehension.
@@ -101,16 +111,23 @@ Project-specific architecture notes should live in a separate project overlay.
 ## TIER_FAST: Low-latency, high-context models for quick queries.
 ##   Examples: Gemini 2.0 Flash, GPT-4o Mini.
 ##   Used by: Fast Query Agent.
+## TIER_ARCHITECT: Models for architecture planning via aider's
+##   ``--architect`` mode. Defaults to same model as TIER_REASONING
+##   but independently configurable.
+##   Used by: Architect Agent.
 ## Default model mapping (override via --model flag):
 ##   TIER_REASONING → openrouter/google/gemini-2.5-flash
-##   TIER_CODING    → openrouter/deepseek/deepseek-coder
+##   TIER_CODING    → openrouter/deepseek/deepseek-chat
 ##   TIER_FAST      → openrouter/google/gemini-2.5-flash
+##   TIER_ARCHITECT → openrouter/google/gemini-2.5-flash
 ## Routing rules:
 ## - Never use a coding model for repo-wide reasoning.
 ## - Never use TIER_FAST for final patch correctness when
 ##   multiple files are affected.
 ## - TIER_REASONING may be used for planning, debugging, and
 ##   complex refactoring analysis.
+## - TIER_ARCHITECT should be used for architecture planning
+##   steps; TIER_REASONING for general reasoning.
 # ============================================================
 # 3. Workflow Blocks
 # ============================================================
@@ -130,6 +147,22 @@ Project-specific architecture notes should live in a separate project overlay.
 ##      dispatches Fast Query Agent (TIER_FAST)
 ##   6. Orchestrator summarizes findings
 ## Output: Structured understanding of the relevant code area.
+## --- ARCHITECT_PLAN_WORKFLOW ---
+## Purpose: Generate a detailed architecture plan before implementation.
+## Trigger: Complex task requiring architecture approval before coding.
+## Steps:
+##   1. Orchestrator classifies intent → ARCHITECT_PLAN
+##   2. Orchestrator creates architecture plan markdown file at
+##      .winkr/task<no>_step<stepno>_architecture_plan.md
+##   3. Orchestrator dispatches Architect Agent:
+##      winkr architect --model TIER_ARCHITECT "Generate architecture plan for ..."
+##   4. Orchestrator evaluates architect output (committed plan doc)
+##   5. Orchestrator compares actual token usage vs estimate
+##   6. If delta > 25%, assess causes and propose rule improvements
+##   7. Orchestrator may refine with more architect steps or proceed
+##      to coding
+##   8. For coding steps, dispatches Mutation Agent
+## Output: Architecture plan committed, then implemented code.
 ## --- PLAN_CHANGE_WORKFLOW ---
 ## Purpose: Architect a solution before implementation.
 ## Trigger: Task requires structural changes or new features.
@@ -137,10 +170,12 @@ Project-specific architecture notes should live in a separate project overlay.
 ##   1. Orchestrator classifies intent → PLAN_CHANGE
 ##   2. Orchestrator dispatches Repo Intelligence Agent for
 ##      impact analysis (impact_analysis, get_dependents)
-##   3. Orchestrator dispatches Reasoning Agent (TIER_REASONING)
-##      to formulate implementation strategy
-##   4. Orchestrator writes implementation_plan.md
-##   5. Orchestrator presents plan for review
+##   3. If complexity is assessed as high, Orchestrator dispatches
+##      Planner Agent to determine architect vs coding split
+##   4. Orchestrator dispatches Reasoning Agent (TIER_REASONING) or
+##      Architect Agent (winkr architect) to formulate strategy
+##   5. Orchestrator writes implementation_plan.md
+##   6. Orchestrator presents plan for review
 ## Output: Approved implementation plan.
 ## --- IMPLEMENT_CHANGE_WORKFLOW ---
 ## Purpose: Execute atomic code mutations with verification.
@@ -149,6 +184,8 @@ Project-specific architecture notes should live in a separate project overlay.
 ##   1. Orchestrator classifies intent → LOCAL_EDIT or
 ##      COMPLEX_REFACTOR
 ##   2. Orchestrator selects next atomic change from plan
+##   2b. If step requires architect oversight, Orchestrator dispatches
+##       Architect Agent first, then Mutation Agent for implementation
 ##   3. Orchestrator dispatches Mutation Agent (Aider +
 ##      TIER_CODING) with explicit, scoped instruction
 ##   4. Orchestrator re-reads repository state from disk
@@ -259,7 +296,7 @@ Project-specific architecture notes should live in a separate project overlay.
 ## - Always prefer shell execution over internal changes.
 ## - Never batch large unrelated changes.
 ## - Prefer many small commits over giant changes.
-## - The Orchestrator (Cline) MUST monitor token usage and
+## - The Orchestrator MUST monitor token usage and
 ##   proactively reduce the context window by issuing the
 ##   `/smol` command whenever usage approaches 80% of the
 ##   model's limit.
@@ -278,7 +315,7 @@ Project-specific architecture notes should live in a separate project overlay.
 ## maintaining visibility into policy compliance.
 ## 
 ## Before every mutation, the Orchestrator MUST run:
-##     winkr enforcer check
+##     winkr enforcer block
 ## to verify the working tree is compliant. If the check returns
 ## [WARN], the Orchestrator MUST reformulate the change as a
 ## `winkr change` invocation before proceeding.
@@ -306,10 +343,10 @@ Project-specific architecture notes should live in a separate project overlay.
 ## 4. Should repository understanding be delegated to depwire
 ##    MCP tools first (then `winkr query` for semantic needs)?
 ## 5. Do I need to re-read repository state after execution?
-## 6. Have I run `winkr enforcer check` to verify compliance?
+## 6. Have I run `winkr enforcer block` to verify compliance?
 ##
 ## If any answer is NO: stop and reformulate the action.
-## If check 6 fails: run `winkr enforcer check` and address warnings.
+## If check 6 fails: run `winkr enforcer block` and address warnings.
 # ============================================================
 # 9. API Key Resolution
 # ============================================================
@@ -322,11 +359,12 @@ Project-specific architecture notes should live in a separate project overlay.
 # 10. Intent Classification & Workflow Selection
 # ============================================================
 ## For every task, classify intent and select workflow:
-## EXPLORE_REPO  → EXPLORE_REPO_WORKFLOW  → TIER_FAST
-## PLAN_CHANGE   → PLAN_CHANGE_WORKFLOW   → TIER_REASONING
-## LOCAL_EDIT    → IMPLEMENT_CHANGE_WORKFLOW → TIER_CODING
-## COMPLEX_REFACTOR → REFACTOR_WORKFLOW   → TIER_REASONING
-## DEBUGGING     → DEBUG_WORKFLOW         → TIER_REASONING
+## EXPLORE_REPO    → EXPLORE_REPO_WORKFLOW    → TIER_FAST
+## PLAN_CHANGE     → PLAN_CHANGE_WORKFLOW     → TIER_REASONING
+## ARCHITECT_PLAN  → ARCHITECT_PLAN_WORKFLOW  → TIER_ARCHITECT
+## LOCAL_EDIT      → IMPLEMENT_CHANGE_WORKFLOW → TIER_CODING
+## COMPLEX_REFACTOR → REFACTOR_WORKFLOW       → TIER_REASONING
+## DEBUGGING       → DEBUG_WORKFLOW           → TIER_REASONING
 # ============================================================
 # 11. Enforcement Protocol
 # ============================================================
@@ -336,13 +374,13 @@ Project-specific architecture notes should live in a separate project overlay.
 ## 11a. Pre-Mutation Check
 ## -----------------------
 ## Before writing any code, run:
-##     winkr enforcer check
+##     winkr enforcer block
 ## If the output contains [WARN], the working tree has policy
 ## violations. DO NOT proceed with mutation. Instead:
 ##   1. Identify which files triggered the warning.
 ##   2. If the files are winkr-managed (.clinerules, etc.), use
 ##      `winkr change` to make the modification instead.
-##   3. Re-run `winkr enforcer check` to confirm [PASS].
+##   3. Re-run `winkr enforcer block` to confirm [PASS].
 ##
 ## 11b. Post-Commit Audit
 ## ----------------------

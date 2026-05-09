@@ -8,8 +8,8 @@ It provides installable Python console commands for:
 - Aider-backed code changes with dirty-worktree safeguards.
 - Reusable model-tier aliases.
 - Shared API-key discovery.
-- Generating reusable Cline rule templates.
-- Optional Cline and tmux session helpers.
+- Generating reusable orchestration rule templates (Cline, Kilocode, Claude).
+- Optional orchestrator and tmux session helpers.
 
 The Python import package remains `llm_agent_toolkit`, while the distributable
 package name is `winkr`.
@@ -54,6 +54,19 @@ The package installs these commands:
 winkr
 winkr query
 winkr change
+winkr architect
+winkr write-rules
+winkr init
+winkr edit
+winkr browse
+winkr start
+winkr tmux
+winkr tiers
+winkr git-setup
+winkr configure
+winkr enforcer check
+winkr enforcer block
+winkr enforcer install-hooks
 ```
 
 ## Query a repository
@@ -79,6 +92,16 @@ dirty worktree:
 ```bash
 winkr change --allow-dirty "Update docs"
 ```
+
+## Generate an architecture plan
+
+```bash
+winkr architect "Design a modular plugin system for the CLI"
+```
+
+This runs Aider in `--architect` mode, focusing on planning rather than
+code mutation. Supports the same `--model`, `--api-key`, `--allow-dirty`,
+and `--print-command` flags as `winkr change`.
 
 ## Print the Aider command without running it
 
@@ -124,9 +147,54 @@ winkr change --model TIER_CODING "Make the CLI more robust"
 winkr query --model openrouter/anthropic/claude-3.5-sonnet "Review this"
 ```
 
-## Generate Cline rules
+Print the current tier configuration:
 
-Write the reusable Cline rule template to `.clinerules`:
+```bash
+winkr tiers
+```
+
+## Initialize a project environment
+
+```bash
+winkr init
+```
+
+Reads `.winkr/config.json` and sets up the project environment (depwire MCP
+server, documentation symlinks, and project-specific configuration).
+
+## Configure winkr
+
+```bash
+winkr configure
+```
+
+Interactively create or update `.winkr/config.json`, which stores the
+orchestrator command name, model mappings, and project-level defaults.
+
+## Configure Git for frictionless pushes
+
+```bash
+winkr git-setup
+```
+
+Generates an SSH key (if none exists), adds it to the SSH agent, and
+configures the Git remote to use the SSH URL for the current repository.
+
+## Enforce the mutation policy
+
+The `winkr enforcer` commands ensure compliance with the winkr mutation
+policy (all changes go through `winkr change`, not direct edits).
+
+```bash
+winkr enforcer block              # Pre-mutation gate — exits non-zero if violations exist
+winkr enforcer check              # Check staged changes or a commit range
+winkr enforcer install-hooks      # Install pre-commit hook for soft enforcement
+```
+
+## Generate orchestration rules
+
+Write the reusable multi-agent orchestration rule template (compatible with
+Cline, Kilocode, and Claude) to a file:
 
 ```bash
 winkr write-rules .clinerules
@@ -138,12 +206,14 @@ Overwrite an existing file:
 winkr write-rules .clinerules --force
 ```
 
-## Optional Cline helper
+## Start the orchestrator
 
-The `winkr start` command orchestrates the Depwire MCP server, generates documentation, and launches Cline.
+The `winkr start` command runs the depwire MCP server setup, generates
+documentation, and launches the configured orchestrator (read from
+`.winkr/config.json`; defaults to `npx cline`).
 
 It supports the following options:
-- `--tui`: Starts Cline in TUI mode with `--tui --auto-condense`.
+- `--tui`: Starts the orchestrator in TUI mode (e.g. `--tui --auto-condense` for Cline).
 - `--remote`: Enables remote access for tmux sessions.
 - `--split`: Enables a dual-pane tmux session.
 
@@ -151,34 +221,16 @@ It supports the following options:
 winkr start
 ```
 
-This runs:
-
-```bash
-npx cline
-```
-
-Start in TUI mode with `--tui` (uses `--tui --auto-condense`):
+Start in TUI mode:
 
 ```bash
 winkr start --tui
-```
-
-This runs:
-
-```bash
-npx cline --tui --auto-condense
 ```
 
 Example with `--remote` and `--split`:
 
 ```bash
 winkr start --tui --remote --split
-```
-
-This runs:
-
-```bash
-npx cline --tui --auto-condense --remote --split
 ```
 
 ## Optional tmux helper
@@ -192,19 +244,18 @@ This opens a two-pane tmux session:
 - top pane: `winkr start`
 - bottom pane: shell
 
-## Cline chat shortcuts (`/edit` and `/browse`)
+## Orchestrator chat shortcuts (`/edit` and `/browse`)
 
-When the `.clinerules` file is present in your project (generated via `winkr write-rules`),
-Cline recognizes these shortcuts in the chat:
+When the rules file (e.g. `.clinerules` for Cline) is present in your project (generated via `winkr write-rules`),
+the orchestrator recognizes these shortcuts in the chat:
 
-| In chat | What Cline does |
+| In chat | What the orchestrator does |
 |---|---|
 | `/edit @<file>` | `winkr edit <file>` — opens file in your editor |
 | `/browse` | `winkr browse .` — opens ranger in current directory |
 | `/browse <path>` | `winkr browse <path>` — opens ranger at the given path |
 
-These are **not built-in Cline features** — they are custom shortcuts defined in the
-`.clinerules` file that instruct Cline (the Orchestrator) to execute the corresponding
+These are custom shortcuts defined in the rules file that instruct the orchestrator to execute the corresponding
 `winkr` command.
 
 ### `winkr edit`

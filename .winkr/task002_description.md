@@ -1,4 +1,6 @@
 # TASK002
+## Task Name
+winkr configure
 ## Description
 Add a command 'winkr configure' that creates a file .winkr/config.json.
 

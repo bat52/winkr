@@ -8,8 +8,8 @@ from pathlib import Path
 import importlib.resources
 import shutil
 
-# Import the write_rules_file function from the rules module
-from .rules import write_rules_file
+# Import the write_rules_file function and rules_filename from the rules module
+from .rules import rules_filename, write_rules_file
 
 from .config_manager import WinkrConfig, load_config
 
@@ -111,16 +111,15 @@ def initialize_git_repo():
     else:
         print("Git repository already exists.")
 
-def create_clinerules_file():
-    """Creates or overwrites the .clinerules file using the internal write_rules_file function."""
-    print("Creating/updating .clinerules file...")
+def create_rules_file(orchestrator_name: str = "cline"):
+    """Creates or overwrites the rules file for the given orchestrator."""
+    filename = rules_filename(orchestrator_name)
+    print(f"Creating/updating {filename} for orchestrator '{orchestrator_name}'...")
     try:
-        # Use the internal write_rules_file function.
-        # The 'force=True' is implied by the plan's requirement to overwrite.
-        write_rules_file(Path(".clinerules"), force=True)
-        print(".clinerules file created/updated successfully.")
+        write_rules_file(Path(filename), force=True)
+        print(f"{filename} created/updated successfully.")
     except Exception as e:
-        print(f"Error creating .clinerules file: {e}", file=sys.stderr)
+        print(f"Error creating {filename}: {e}", file=sys.stderr)
         raise
 
 def handle_init(args: argparse.Namespace, config: WinkrConfig | None = None) -> int:
@@ -158,20 +157,36 @@ def handle_init(args: argparse.Namespace, config: WinkrConfig | None = None) -> 
     # For npm packages, the function is install_npm_package, and the package name is the same as dep_name.
     # Git is handled separately.
     # Map command name to its installation package name.
-    dependency_packages = {
-        "cline": "cline",
+    dependency_packages: dict[str, str] = {
         "depwire": "depwire-cli",
     }
+
+    # Add the orchestrator to dependency check if known
+    if config is not None:
+        orchestrator_cmd = config.orchestrator_command_name
+        dependency_packages.setdefault(orchestrator_cmd, orchestrator_cmd)
+    else:
+        dependency_packages.setdefault("cline", "cline")
 
     # Check and install npm dependencies
     for cmd_name, package_name in dependency_packages.items():
         if not check_command_exists(cmd_name):
             print(f"{cmd_name} not found.")
-            try:
-                install_npm_package(package_name)
-            except Exception as e:
-                print(f"Failed to install {cmd_name}. Please install it manually. Error: {e}")
-                return 1 # Indicate failure
+            if cmd_name in ['cline', 'kilocode', 'depwire']:
+                # install via npm 
+                try:
+                    install_npm_package(package_name)
+                except Exception as e:
+                    print(f"Failed to install {cmd_name}. Please install it manually. Error: {e}")
+                    return 1 # Indicate failure
+            elif cmd_name == "claude":
+                # install claude
+                try:
+                    subprocess.run("curl -fsSL https://claude.ai/install.sh | bash", 
+                                   check=True, capture_output=True, text=True, shell=True)
+                    print(f"{package_name} installed successfully globally.")
+                except subprocess.CalledProcessError as e:
+                    print(f"Claude installation failed: {e.stderr}")
         else:
             print(f"{cmd_name} is already installed.")
 
@@ -190,11 +205,12 @@ def handle_init(args: argparse.Namespace, config: WinkrConfig | None = None) -> 
         print(f"Failed to initialize Git repository. Error: {e}")
         return 1
 
-    # 3. Create .clinerules file
+    # 3. Create rules file for the configured orchestrator
+    orchestrator = config.orchestrator_command_name if config is not None else "cline"
     try:
-        create_clinerules_file()
+        create_rules_file(orchestrator)
     except Exception as e:
-        print(f"Failed to create .clinerules file. Error: {e}")
+        print(f"Failed to create rules file. Error: {e}")
         return 1
 
     # 4. Install enforcer pre-commit hooks

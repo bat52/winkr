@@ -17,3 +17,6 @@ test_venv/*
 scripts/aider_cfg.sh
 *.pyc
 src/llm_agent_toolkit/__pycache__/*
+AGENTS.md
+CONTEXT.md
+AGENTS.md

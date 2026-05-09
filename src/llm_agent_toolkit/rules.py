@@ -1,17 +1,28 @@
-"""Packaged Cline rule templates."""
+"""Packaged orchestrator rule templates."""
 
 from __future__ import annotations
 
 from importlib import resources
 from pathlib import Path
 
+_ORCHESTRATOR_RULES_FILES: dict[str, str] = {
+    "cline": ".clinerules",
+    "kilocode": "AGENTS.md",
+    "claude": "CONTEXT.md",
+}
+
+
+def rules_filename(orchestrator: str) -> str:
+    """Return the rules filename for the given orchestrator."""
+    return _ORCHESTRATOR_RULES_FILES.get(orchestrator, ".clinerules")
+
 
 def load_base_rules() -> str:
-    """Return the bundled base Cline rules."""
+    """Return the bundled base rules."""
 
     return (
         resources.files("llm_agent_toolkit")
-        .joinpath("rules/clinerules.base.md")
+        .joinpath("rules/rules.base.md")
         .read_text(encoding="utf-8")
     )
 

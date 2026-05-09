@@ -1,0 +1,13 @@
+{
+  "orchestrator": {
+    "command_name": "kilocode",
+    "start_commands": [
+      "kilocode"
+    ]
+  },
+  "tiers": {
+    "TIER_REASONING": "openrouter/google/gemini-2.5-flash",
+    "TIER_CODING": "openrouter/deepseek/deepseek-chat",
+    "TIER_FAST": "openrouter/deepseek/deepseek-chat"
+  }
+}

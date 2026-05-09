@@ -360,15 +360,23 @@ def handle_start(args: argparse.Namespace) -> int:
     if args.tui and args.remote and os.environ.get("TMUX") is None:
         return handle_tmux(args)
 
-    # Depwire MCP server and docs are handled by scripts/cline.sh,
+    # Depwire MCP server and docs are handled by scripts/depwire.sh,
     # which is the canonical entry point. We avoid duplicating that
     # work here to prevent resource contention (two MCP servers).
+    print("[WINKR-START] Launching Cline with depwire MCP server...", file=sys.stderr)
+    depwire_script = Path(__file__).resolve().parents[2] / "scripts" / "depwire.sh"
+    command_depwire = [str(depwire_script)]
+    completed_depwire = subprocess.run(command_depwire, check=False)
+    print(f"[WINKR-START] depwire exited with code {completed_depwire.returncode}", file=sys.stderr)
 
+    # Load config.json
+    config = load_config()
+
+    command = config.orchestrator_start_commands
     # Launch Cline via the wrapper script
-    cline_script = Path(__file__).resolve().parents[2] / "scripts" / "cline.sh"
-    command = [str(cline_script)]
-    if args.tui:
-        command.extend(["--tui", "--auto-condense"])
+    if config.orchestrator_command_name == "cline":
+        if args.tui:
+            command.extend(["--tui", "--auto-condense"])
 
     # Note: --remote and --split are handled by handle_tmux if applicable,
     # but we pass them to cline.sh just in case it needs them.

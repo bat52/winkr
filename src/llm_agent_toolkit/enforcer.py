@@ -59,6 +59,8 @@ _AIDER_DIFF_PATTERNS = ("aider", "--- a/", "+++ b/")
 
 _WINKR_MANAGED_FILES = frozenset({
     ".clinerules",
+    "AGENTS.md",
+    "CONTEXT.md",
     "implementation_plan.md",
     ".ai_logs",
 })

@@ -1,4 +1,6 @@
 # TASK001
+## Task Name
+architect agent
 ## Description
 Add an Architect Agent to the rules set.
 The Architect Agent role uses aider /architect feature.
