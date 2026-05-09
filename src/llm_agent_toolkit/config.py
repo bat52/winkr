@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 MODEL_TIERS: dict[str, str] = {
-    "TIER_REASONING": "openrouter/google/gemini-2.5-flash",
-    "TIER_CODING": "openrouter/deepseek/deepseek-chat",
-    "TIER_FAST": "openrouter/deepseek/deepseek-chat",
-    "TIER_ARCHITECT": "openrouter/google/gemini-2.5-flash",
+    "TIER_REASONING": "deepseek/deepseek-coder", # "openrouter/google/gemini-2.5-flash",
+    "TIER_ARCHITECT": "deepseek/deepseek-coder", # "openrouter/google/gemini-2.5-flash",
+    "TIER_CODING"   : "deepseek/deepseek-chat",  # "openrouter/deepseek/deepseek-chat",
+    "TIER_FAST"     : "deepseek/deepseek-chat",
 }
 
 DEFAULT_QUERY_MODEL = "TIER_FAST"

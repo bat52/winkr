@@ -1,22 +1,46 @@
-src/winkr.egg-info/*
-Pipfile
+# aider
+.aider*
+scripts/aider_cfg.sh
+
+# cline
 .clinerules
 .cline/
 .clinerules.test
-.aider*
+
+# depwire
+.depwire/
+
+# kilocode
+.kilo/plans/*
+
+# pip build
+src/winkr.egg-info/*
+
+# python venv
+Pipfile
+.venv/*
+test_venv/*
 package-lock.json
 package.json
+
+# python execution artifacts
+*.pyc
+src/llm_agent_toolkit/__pycache__/*
+tests/__pycache__/*
+
+# node
 node_modules/*
+
+# git
+.git/hooks/pre-commit.bak.*
+
+# markdown artifacts
+AGENTS.md
+CONTEXT.md
 *-edit.md
 *-query.md
 *-change.md
-test_venv/*
-.depwire/
-.git/hooks/pre-commit.bak.*
-
-scripts/aider_cfg.sh
-*.pyc
-src/llm_agent_toolkit/__pycache__/*
-AGENTS.md
-CONTEXT.md
-AGENTS.md
+*-architect.md
+*-reasoning.md
+*-coding.md
+*-fast.md
