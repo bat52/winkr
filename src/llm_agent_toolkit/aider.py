@@ -11,6 +11,9 @@ from typing import Sequence
 from .config import DEFAULT_CHANGE_MODEL, DEFAULT_QUERY_MODEL, resolve_model
 from .credentials import ResolvedApiKey
 
+DEFAULT_ARCHITECT_MODEL = "TIER_REASONING"
+"""Default model tier for architect commands."""
+
 
 @dataclass(frozen=True)
 class AiderCommand:
@@ -64,6 +67,38 @@ def build_change_command(
         selected_model,
         "--message",
         prompt,
+    ]
+    argv.extend(files)
+    argv.extend(extra_args)
+    return AiderCommand(tuple(argv))
+
+
+def build_architect_command(
+    prompt: str,
+    api_key: ResolvedApiKey,
+    model: str | None = None,
+    files: Sequence[str] = (),
+    extra_args: Sequence[str] = (),
+) -> AiderCommand:
+    """Build the Aider command for architect-oriented planning.
+
+    Uses ``--architect`` to generate an architecture plan first, then
+    an editor model (TIER_CODING) implements the plan.
+    """
+
+    selected_model = resolve_model(model or DEFAULT_ARCHITECT_MODEL)
+    editor_model = resolve_model("TIER_CODING")
+    argv = [
+        "aider",
+        "--api-key",
+        api_key.for_aider(),
+        "--model",
+        selected_model,
+        "--message",
+        prompt,
+        "--architect",
+        "--editor-model",
+        editor_model,
     ]
     argv.extend(files)
     argv.extend(extra_args)

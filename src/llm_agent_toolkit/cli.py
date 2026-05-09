@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Sequence
 
 from . import __version__
-from .aider import build_change_command, build_query_command, run_command, validate_prompt
+from .aider import build_architect_command, build_change_command, build_query_command, run_command, validate_prompt
 from .commands import run_browser, run_editor
 from .config import MODEL_TIERS
 from .credentials import resolve_api_key
@@ -60,6 +60,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional file paths to pass to Aider.",
     )
     change.set_defaults(func=handle_change)
+
+    architect = subparsers.add_parser(
+        "architect",
+        help="Ask Aider to generate an architecture plan (uses --architect mode).",
+    )
+    add_common_aider_args(architect)
+    architect.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        help="Allow changes when the Git worktree is dirty.",
+    )
+    architect.add_argument("prompt", help="Instruction to send to Aider.")
+    architect.add_argument(
+        "files",
+        nargs="*",
+        help="Optional file paths to pass to Aider.",
+    )
+    architect.set_defaults(func=handle_architect)
 
     write_rules = subparsers.add_parser(
         "write-rules",
@@ -280,6 +298,36 @@ def handle_change(args: argparse.Namespace) -> int:
         return 0
 
     print("[WINKR-CHANGE] Delegating mutation to Aider...", file=sys.stderr)
+    return run_command(command)
+
+
+def handle_architect(args: argparse.Namespace) -> int:
+    """Handle ``winkr architect`` — delegate architecture planning to Aider."""
+    validate_prompt(args.prompt)
+    if not args.allow_dirty:
+        ensure_clean_worktree(Path.cwd())
+
+    api_key = resolve_api_key(args.api_key)
+    if api_key is None:
+        print("ERROR: no API key found.", file=sys.stderr)
+        return 2
+
+    command = build_architect_command(
+        prompt=args.prompt,
+        api_key=api_key,
+        model=args.model,
+        files=args.files,
+        extra_args=args.extra_aider_arg,
+    )
+
+    if not args.no_log:
+        log_prompt("architect", args.prompt, command.shell_string())
+
+    if args.print_command:
+        print(command.shell_string())
+        return 0
+
+    print("[WINKR-ARCHITECT] Delegating architecture planning to Aider...", file=sys.stderr)
     return run_command(command)
 
 

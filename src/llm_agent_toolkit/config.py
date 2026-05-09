@@ -6,6 +6,7 @@ MODEL_TIERS: dict[str, str] = {
     "TIER_REASONING": "openrouter/google/gemini-2.5-flash",
     "TIER_CODING": "openrouter/deepseek/deepseek-chat",
     "TIER_FAST": "openrouter/google/gemini-2.5-flash",
+    "TIER_ARCHITECT": "openrouter/google/gemini-2.5-flash",
 }
 
 DEFAULT_QUERY_MODEL = "TIER_FAST"

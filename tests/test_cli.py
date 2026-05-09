@@ -219,3 +219,45 @@ def test_handle_tmux(mock_shell, mock_short_hostname, mock_path, mock_subprocess
 def test_build_parser():
     parser = build_parser()
     assert isinstance(parser, argparse.ArgumentParser)
+
+
+def test_build_parser_has_architect_subcommand():
+    """Verify the architect subcommand is registered in the parser."""
+    parser = build_parser()
+    # Parse a minimal architect invocation to confirm the subcommand exists
+    args = parser.parse_args(["architect", "plan this"])
+    assert args.command == "architect"
+    assert args.prompt == "plan this"
+    assert args.files == []
+    assert args.allow_dirty is False
+    assert args.print_command is False
+    assert args.no_log is False
+    assert args.extra_aider_arg == []
+
+
+def test_build_parser_architect_with_files():
+    """Verify architect subcommand accepts files."""
+    parser = build_parser()
+    args = parser.parse_args(["architect", "plan this", "src/foo.py", "src/bar.py"])
+    assert args.command == "architect"
+    assert args.prompt == "plan this"
+    assert args.files == ["src/foo.py", "src/bar.py"]
+
+
+def test_build_parser_architect_with_flags():
+    """Verify architect subcommand accepts flags."""
+    parser = build_parser()
+    args = parser.parse_args([
+        "architect",
+        "--allow-dirty",
+        "--print-command",
+        "--no-log",
+        "--model", "gpt-4o",
+        "plan this",
+    ])
+    assert args.command == "architect"
+    assert args.allow_dirty is True
+    assert args.print_command is True
+    assert args.no_log is True
+    assert args.model == "gpt-4o"
+    assert args.prompt == "plan this"
