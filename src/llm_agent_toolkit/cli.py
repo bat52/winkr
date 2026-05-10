@@ -356,8 +356,8 @@ def handle_browse(args: argparse.Namespace) -> int:
 
 
 def handle_start(args: argparse.Namespace) -> int:
-    # If --tui and --remote are present, launch in tmux unless already in tmux
-    if args.tui and args.remote and os.environ.get("TMUX") is None:
+    # If --remote or --split are present, launch in tmux unless already in tmux
+    if (args.remote or args.split) and os.environ.get("TMUX") is None:
         return handle_tmux(args)
 
     # Depwire MCP server and docs are handled by scripts/depwire.sh,
@@ -372,18 +372,20 @@ def handle_start(args: argparse.Namespace) -> int:
     # Load config.json
     config = load_config()
 
-    command = config.orchestrator_start_commands
+    command = list(config.orchestrator_start_commands)
     # Launch Cline via the wrapper script
     if config.orchestrator_command_name == "cline":
         if args.tui:
             command.extend(["--tui", "--auto-condense"])
 
-    # Note: --remote and --split are handled by handle_tmux if applicable,
-    # but we pass them to cline.sh just in case it needs them.
-    if args.remote:
-        command.append("--remote")
-    if args.split:
-        command.append("--split")
+        # Note: --remote and --split are handled by handle_tmux if applicable,
+        # but we pass them to the orchestrator just in case it needs them.
+        # We only pass them if the orchestrator is 'cline' for now,
+        # as other orchestrators like 'gemini' don't support them.
+        if args.remote:
+            command.append("--remote")
+        if args.split:
+            command.append("--split")
 
     cmd_tuple = tuple(command)
     if args.print_command:

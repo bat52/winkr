@@ -13,6 +13,9 @@ scripts/aider_cfg.sh
 # kilocode
 .kilo/plans/*
 
+# gemini
+./gemini/*
+
 # pip build
 src/winkr.egg-info/*
 
@@ -37,6 +40,7 @@ node_modules/*
 # markdown artifacts
 AGENTS.md
 CONTEXT.md
+GEMINI.md
 *-edit.md
 *-query.md
 *-change.md
@@ -46,4 +50,4 @@ CONTEXT.md
 *-fast.md
 
 # winkr artifacts
-.winkr/config.json
+.winkr/*

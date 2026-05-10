@@ -195,6 +195,61 @@ def test_handle_start(mock_path, mock_subprocess_run):
 
     assert return_code == 0
 
+
+@patch("llm_agent_toolkit.cli.load_config")
+@patch("llm_agent_toolkit.cli.handle_tmux")
+@patch("subprocess.run")
+@patch("pathlib.Path")
+def test_handle_start_remote_triggers_tmux(mock_path, mock_subprocess_run, mock_handle_tmux, mock_load_config):
+    """Verify that winkr start --remote triggers handle_tmux."""
+    mock_args = MagicMock(spec=argparse.Namespace)
+    mock_args.tui = False
+    mock_args.remote = True
+    mock_args.split = False
+    mock_args.print_command = False
+
+    mock_load_config.return_value = MagicMock()
+    mock_handle_tmux.return_value = 0
+
+    with patch.dict("os.environ", {}, clear=True):
+        return_code = handle_start(mock_args)
+
+    assert return_code == 0
+    mock_handle_tmux.assert_called_once_with(mock_args)
+
+
+@patch("llm_agent_toolkit.cli.load_config")
+@patch("subprocess.run")
+@patch("pathlib.Path")
+def test_handle_start_gemini_no_remote_flag(mock_path, mock_subprocess_run, mock_load_config):
+    """Verify that gemini orchestrator does not receive --remote flag even if in TMUX."""
+    mock_args = MagicMock(spec=argparse.Namespace)
+    mock_args.tui = False
+    mock_args.remote = True
+    mock_args.split = False
+    mock_args.print_command = False
+
+    mock_config = MagicMock()
+    mock_config.orchestrator_command_name = "gemini"
+    mock_config.orchestrator_start_commands = ("gemini",)
+    mock_load_config.return_value = mock_config
+
+    mock_subprocess_run.return_value = MagicMock(returncode=0)
+
+    # Simulate being in TMUX so it doesn't trigger handle_tmux
+    with patch.dict("os.environ", {"TMUX": "/tmp/tmux-1000/default,123,0"}, clear=True):
+        with patch("builtins.print"):
+            return_code = handle_start(mock_args)
+
+    assert return_code == 0
+    # Check that subprocess.run was called with 'gemini' and NOT '--remote'
+    # The first call is to depwire.sh, the second is to gemini
+    gemini_call = mock_subprocess_run.call_args_list[-1]
+    cmd = gemini_call[0][0]
+    assert "gemini" in cmd
+    assert "--remote" not in cmd
+
+
 @patch("subprocess.run")
 @patch("pathlib.Path")
 @patch("llm_agent_toolkit.cli._short_hostname")
