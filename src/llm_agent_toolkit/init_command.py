@@ -191,7 +191,7 @@ def handle_init(args: argparse.Namespace, config: WinkrConfig | None = None) -> 
             elif cmd_name == "gemini":
                 # Install gemini CLI
                 try:
-                    install_npm_package("@gemini/cli")
+                    install_npm_package("@google/gemini-cli")
                 except Exception as e:
                     print(f"Failed to install gemini CLI. Please install it manually. Error: {e}")
                     return 1
