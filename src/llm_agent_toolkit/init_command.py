@@ -183,12 +183,27 @@ def handle_init(args: argparse.Namespace, config: WinkrConfig | None = None) -> 
                 # install claude
                 try:
                     subprocess.run("curl -fsSL https://claude.ai/install.sh | bash", 
-                                   check=True, capture_output=True, text=True, shell=True)
+                                    check=True, capture_output=True, text=True, shell=True)
                     print(f"{package_name} installed successfully globally.")
                 except subprocess.CalledProcessError as e:
                     print(f"Claude installation failed: {e.stderr}")
-        else:
-            print(f"{cmd_name} is already installed.")
+                    return 1
+            elif cmd_name == "gemini":
+                # Install gemini CLI
+                try:
+                    install_npm_package("@gemini/cli")
+                except Exception as e:
+                    print(f"Failed to install gemini CLI. Please install it manually. Error: {e}")
+                    return 1
+            elif cmd_name == "copilot":
+                # Install GitHub Copilot CLI
+                try:
+                    install_npm_package("@githubnext/github-copilot-cli")
+                except Exception as e:
+                    print(f"Failed to install GitHub Copilot CLI. Please install it manually. Error: {e}")
+                    return 1
+            else:
+                print(f"{cmd_name} is already installed.")
 
     # Handle Git separately
     if not check_command_exists("git"):
