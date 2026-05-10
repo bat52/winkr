@@ -9,6 +9,8 @@ _ORCHESTRATOR_RULES_FILES: dict[str, str] = {
     "cline": ".clinerules",
     "kilocode": "AGENTS.md",
     "claude": "CONTEXT.md",
+    "gemini": "GEMINI.md",
+    "copilot": "AGENTS.md",
 }
 
 

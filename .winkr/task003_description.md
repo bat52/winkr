@@ -8,6 +8,8 @@ Supported orchestrators:
 * cline
 * claude
 * kilocode
+* gemini
+* copilot
 
 Rename @file:src/llm_agent_toolkit/rules/clinerules.base.md to  src/llm_agent_toolkit/rules/rules.base.md
 
@@ -17,4 +19,7 @@ Based on the selected orchestrator present in @file:./winkr/config.json, command
 ** cline -> .clinerules
 ** kilocode -> AGENTS.md
 ** claude -> CONTEXT.md
+** copilot -> AGENTS.md
+** gemini -> GEMINI.md
+
 
